@@ -1,8 +1,10 @@
+import os
+
 # Paths for data from human connectome project
 # Folders
 PATH_TO_DATA = "data"
 SUFFIX_SUBJECT_ID = "_3T_Structural_unproc"
-UNPROCESSED_DATA = "unprocessed/3T"
+UNPROCESSED_DATA = os.path.join("unprocessed", "3T")
 T1_DATA = "T1w_MPR1"
 T2_DATA = "T2w_SPC1"
 # MRI files

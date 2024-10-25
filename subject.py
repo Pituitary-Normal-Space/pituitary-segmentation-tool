@@ -19,7 +19,6 @@ class Subject:
     :param sex: The sex of the subject.
     :param t1_path: The path to the T1 MRI data.
     :param t2_path: The path to the T2 MRI data.
-    :param: disease_status: The pituitary disease status of the subject. Default is None, valid options are adenoma and carcinoma.
     """
 
     def __init__(
@@ -40,7 +39,7 @@ class Subject:
         self.processed_t2 = None
 
     def __str__(self) -> str:
-        return f"Subject ID: {self.subject_id}, Age: {self.age}, Sex: {self.sex}, Disease Status: {self.disease_status}, Processing Complete: {self.processeing_complete}"
+        return f"Subject ID: {self.subject_id}, Age: {self.age}, Sex: {self.sex}, Processing Complete: {self.processeing_complete}, UnProcessed T1 Path: {self.unprocessed_t1}, UnProcessed T2 Path: {self.unprocessed_t2}{", Processed T1 Path: {self.processed_t1}, Processed T2 Path: {self.processed_t2}" if self.processeing_complete else ''}"
 
     def preprocess_MRIs(self):
         """
