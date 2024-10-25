@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "generate-normal-space"
+version = "0.1.0"
+description = "Repository containing code that generates the pituitary normal space."
+authors = ["charbelmarche33 <cmarche@mail.umw.edu>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+nibabel = "^5.3.2"
+fslpy = "^3.21.1"
+pandas = "^2.2.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
