@@ -11,7 +11,7 @@ import pandas as pd
 # Local application imports
 from subject import Subject
 from const import (
-    PATH_TO_DATA,
+    PATH_TO_UNPROCESSED_DATA,
     SUFFIX_SUBJECT_ID,
     UNPROCESSED_DATA,
     T1_DATA,
@@ -21,7 +21,9 @@ from const import (
 )
 
 
-def create_subject_list(key_df: pd.DataFrame, data_path: str = PATH_TO_DATA) -> list:
+def create_subject_list(
+    key_df: pd.DataFrame, data_path: str = PATH_TO_UNPROCESSED_DATA
+) -> list:
     """
     Function to create a list of subject IDs from the data path.
 

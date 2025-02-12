@@ -10,8 +10,9 @@ Mostly TBD... Takes a directory containing unprocessed MRIs in the following str
 
 #### Setting Up Locally
 
-Note: To run FSL on Windows you will need wsl. You can see the sandbox repository for more details on that.
+Note: You must have [FSL installed](https://fsl.fmrib.ox.ac.uk/fsl/docs/#/install/index) on your local machine. Additionally you must access the relevant images to run this script from the Human Connectome Project.
 
+- Also FSL cannot be run on Windows machines without WSL (Windows Subsystem for Linux). The link above has instructions on this, you can also contact me for help.
 - Download our package manager poetry (if you have not downloaded it already)
   ```bash
   pip install poetry
@@ -33,6 +34,10 @@ Note: To run FSL on Windows you will need wsl. You can see the sandbox repositor
   ```bash
   poetry shell
   ```
+  - If this doesn't work run
+    ```bash
+    poetry run python main.py
+    ```
 - Run the program with this command
   ```bash
   python main.py

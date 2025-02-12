@@ -8,17 +8,22 @@ import os
 # Third party imports
 # import fslpy as fsl
 import pandas as pd
-import nibabel as nib
 
 # Local application imports
 from utils import create_subject_list
-from const import PATH_TO_DATA, KEY_MAP_NAME
+from const import PATH_TO_UNPROCESSED_DATA, KEY_MAP_NAME
 
 
 def main():
     # Get the list of subject objects
-    subject_list = create_subject_list(pd.read_csv(f"{PATH_TO_DATA}/{KEY_MAP_NAME}"))
-    _ = [print(subject) for subject in subject_list]
+    subject_list = create_subject_list(
+        pd.read_csv(f"{PATH_TO_UNPROCESSED_DATA}/{KEY_MAP_NAME}")
+    )
+    for subject in subject_list:
+        print(subject)
+        subject.preprocess_MRIs()
+        #subject.overlay_MRIs()
+        subject.coregister_to_mni(previously_coregistered=True)
 
 
 main()
