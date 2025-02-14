@@ -21,6 +21,10 @@ from config import (
     robust_brain_extraction,
     spline_order,
     hessian_precision,
+    x_range,
+    y_range,
+    z_range,
+    intensity_range,
 )
 from const import (
     T1_BRAIN_FILE,
@@ -298,8 +302,8 @@ class Subject:
     def locate_pituitary(
         self,
         mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
-            (-10, -3, -26),
-            (12, 10, -38),
+            (x_range[0], y_range[0], z_range[0]),
+            (x_range[1], y_range[1], z_range[1]),
         ),  # These coordinates were determined by me
     ) -> Tuple[float, float, float]:
         """
@@ -372,9 +376,9 @@ class Subject:
         )
         print(np.unique(pituitary_data))  # Check if there are any non-zero values
         min_intensity = np.min(
-            pituitary_data[pituitary_data > 300]
+            pituitary_data[pituitary_data > intensity_range[0]]
         )  # Ignore background, background tissue, and vessels for now
-        max_intensity = np.max(pituitary_data[pituitary_data < 800])
+        max_intensity = np.max(pituitary_data[pituitary_data < intensity_range[1]])
         highlight_threshold = (min_intensity, max_intensity)
 
         print(f"Highlighting intensities between {highlight_threshold}")
