@@ -12,6 +12,8 @@ import numpy as np
 import nibabel as nib
 from scipy.ndimage import label
 from sklearn.mixture import GaussianMixture
+from sklearn.cluster import KMeans
+
 
 # Local libs
 from config import (
@@ -32,7 +34,7 @@ from config import (
     connectivity_weight,
     naive_mask_weight,
     min_score_threshold,
-    cluster_prob_threshold,
+    cluster_dist_threshold,
 )
 from const import (
     T1_BRAIN_FILE,
@@ -667,26 +669,18 @@ class Subject:
         # Create initial mask based on scores
         selected_voxels = scores >= min_score_threshold
 
+        # Use KMeans for selecting the most relevant voxels
         if np.sum(selected_voxels) > 0:
-            # Fit a GMM with 1 component (assume the gland region follows a Gaussian distribution)
-            gmm = GaussianMixture(
-                n_components=1, covariance_type="full", random_state=42
+            clustering = KMeans(n_clusters=1, n_init=10, random_state=42).fit(
+                coords[selected_voxels]
             )
-            gmm.fit(coords[selected_voxels])
 
-            # Get the predicted probability of each voxel belonging to the gland region
-            probabilities = gmm.predict_proba(coords[selected_voxels])[
-                :, 0
-            ]  # Probabilities for the component
+            centroid = clustering.cluster_centers_[0]  # Updated centroid
+            distances = np.linalg.norm(coords[selected_voxels] - centroid, axis=1)
 
-            # Print all unique probabilities
-            print(f"Unique probabilities: {np.unique(probabilities)}")
-
-            # Define a probability threshold to retain high-confidence voxels
-            prob_threshold = cluster_prob_threshold  # Adjust as needed
-            # Print how many would be thresholded
-            print(f"Thresholding {np.sum(probabilities < prob_threshold)} voxels")
-            selected_voxels[selected_voxels] = probabilities >= prob_threshold
+            # Define a cutoff threshold (e.g., 90th percentile of distances to filter out outliers)
+            cutoff_distance = np.percentile(distances, cluster_dist_threshold * 100)
+            selected_voxels[selected_voxels] = distances <= cutoff_distance
 
         # Create final binary mask
         final_mask = np.zeros_like(naive_mask_data)
