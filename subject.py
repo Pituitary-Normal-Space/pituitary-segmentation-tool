@@ -5,11 +5,13 @@ File that contains the Subject class. This is a class that represents a subject,
 # Standard libs
 import os
 import subprocess
-from typing import Literal, Tuple
+from typing import Literal, Tuple, Dict
 
 # Non-standard libs
 import numpy as np
 import nibabel as nib
+from scipy.ndimage import label
+from sklearn.mixture import GaussianMixture
 
 # Local libs
 from config import (
@@ -25,6 +27,12 @@ from config import (
     y_range,
     z_range,
     intensity_range,
+    distance_weight,
+    intensity_range_weight,
+    connectivity_weight,
+    naive_mask_weight,
+    min_score_threshold,
+    cluster_prob_threshold,
 )
 from const import (
     T1_BRAIN_FILE,
@@ -46,6 +54,7 @@ from const import (
     T1_MNI_MAT_FILE,
     PATH_TO_PROCESSED_DATA,
     MNI_TEMPLATE,
+    PITUITARY_CENTROID_FILE,
 )
 from mri import show_mri_slices
 
@@ -91,9 +100,80 @@ class Subject:
         self.overlay_output = None
         self.in_MNI_space = False
         self.pituitary_mask = None
+        self.final_mask_stats = None
+
+        # Check that config parameters are valid
+        if min_score_threshold < 0 or min_score_threshold > 1:
+            raise ValueError("Minimum score threshold must be between 0 and 1")
+
+        if (
+            distance_weight
+            + intensity_range_weight
+            + connectivity_weight
+            + naive_mask_weight
+        ) != 1:
+            raise ValueError(
+                "Weights for distance, intensity, connectivity, and naive mask must add up to 1"
+            )
+
+        if fractional_intensity_t1 < 0 or fractional_intensity_t1 > 1:
+            raise ValueError(
+                "Fractional intensity threshold for T1 must be between 0 and 1"
+            )
+
+        if fractional_intensity_t2 < 0 or fractional_intensity_t2 > 1:
+            raise ValueError(
+                "Fractional intensity threshold for T2 must be between 0 and 1"
+            )
+
+        if gradient_t1 < 0:
+            raise ValueError("Gradient threshold for T1 must be greater than 0")
+
+        if gradient_t2 < 0:
+            raise ValueError("Gradient threshold for T2 must be greater than 0")
+
+        if smoothing_sigma < 0:
+            raise ValueError("Smoothing sigma must be greater than 0")
+
+        if spline_order not in [2, 3]:
+            raise ValueError("Spline order must be 2 or 3")
+
+        if hessian_precision not in ["double", "float"]:
+            raise ValueError("Hessian precision must be double or float")
 
     def __str__(self) -> str:
-        return f"Subject ID: {self.subject_id}, Age: {self.age}, Sex: {self.sex}, Processing Complete: {self.processeing_complete}, UnProcessed T1 Path: {self.unprocessed_t1}, UnProcessed T2 Path: {self.unprocessed_t2}{', Processed T1 Path: {self.processed_t1}, Processed T2 Path: {self.processed_t2}' if self.processeing_complete else ''}"
+        base_info = (
+            f"Subject ID: {self.subject_id}\n"
+            f"Age: {self.age}\n"
+            f"Sex: {self.sex}\n"
+            f"Processing Complete: {self.processeing_complete}\n"
+            f"UnProcessed T1 Path: {self.unprocessed_t1}\n"
+            f"UnProcessed T2 Path: {self.unprocessed_t2}"
+        )
+
+        if not self.processeing_complete:
+            return base_info
+
+        processed_info = (
+            f"\nProcessed T1 MNI Path: {self.final_t1_mni}\n"
+            f"Processed T2 MNI Path: {self.final_t2_mni}"
+        )
+
+        if self.pituitary_mask and self.final_mask_stats:
+            mask_info = (
+                f"\nPituitary Mask Path: {self.pituitary_mask}\n"
+                f"Pituitary Statistics:\n"
+                f"  Volume (voxels): {self.final_mask_stats['volume_voxels']}\n"
+                f"  Volume (mm³): {self.final_mask_stats['volume_mm3']:.2f}\n"
+                f"  Center (MNI): [{', '.join(f'{x:.2f}' for x in self.final_mask_stats['center_mni'])}]\n"
+                f"  Mean Intensity: {self.final_mask_stats['mean_intensity']:.2f}\n"
+                f"  Min Intensity: {self.final_mask_stats['min_intensity']:.2f}\n"
+                f"  Max Intensity: {self.final_mask_stats['max_intensity']:.2f}\n"
+                f"  Std Intensity: {self.final_mask_stats['std_intensity']:.2f}"
+            )
+            return base_info + processed_info + mask_info
+
+        return base_info + processed_info
 
     def setup_pituitary_analysis(self) -> None:
         """
@@ -288,18 +368,19 @@ class Subject:
 
         self.in_MNI_space = True
 
-    def set_up_pituitary_analysis(self) -> None:
+    def complete_pituitary_analysis(self) -> Dict[str, float]:
         """
-        This function assumes that the MRI data has been preprocessed and registered to MNI space.
+        Function that creates a naive pituitary mask and then performs pituitary detection and segmentation.
+        It then calculates statistics about the detected pituitary region.
 
-        It sets up the necessary files and directories for pituitary analysis.
-
-        :return: None
+        :return: Dictionary containing various statistics about the pituitary region
         """
-        self.__create_output_directory()
-        self.processeing_complete = True
+        self.__create_naive_pituitary_mask()
+        self.__create_dynamic_pituitary_mask()
+        self.__get_pituitary_statistics()
+        return self.final_mask_stats
 
-    def locate_pituitary(
+    def __create_naive_pituitary_mask(
         self,
         mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
             (x_range[0], y_range[0], z_range[0]),
@@ -363,7 +444,7 @@ class Subject:
         print(f"Pituitary location (voxel): {pituitary_voxels}")
 
         # Extract correct slice indices for each orientation
-        slice_indices = {
+        self.slice_indices = {
             "Axial": voxel_coords[2] + (voxel_size[2] // 2),  # Z-slice
             "Sagittal": voxel_coords[0] + (voxel_size[0] // 2),  # X-slice
             "Coronal": voxel_coords[1] + (voxel_size[1] // 2),  # Y-slice
@@ -374,7 +455,6 @@ class Subject:
         print(
             f"Pituitary mask intensity range: {np.min(pituitary_data)} - {np.max(pituitary_data)}"
         )
-        print(np.unique(pituitary_data))  # Check if there are any non-zero values
         min_intensity = np.min(
             pituitary_data[pituitary_data > intensity_range[0]]
         )  # Ignore background, background tissue, and vessels for now
@@ -386,7 +466,7 @@ class Subject:
         # Visualize the detected region
         show_mri_slices(
             [self.pituitary_mask],
-            slice_index=slice_indices,  # Pass all three slice indices
+            slice_index=self.slice_indices,  # Pass all three slice indices
             titles=["Pituitary Region With Highlights"],
             highlight_threshold=highlight_threshold,
         )
@@ -407,6 +487,282 @@ class Subject:
         )
 
         return pituitary_voxels
+
+    def __create_dynamic_pituitary_mask(
+        self,
+        update_mask: bool = True,
+        mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
+            (x_range[0], y_range[0], z_range[0]),
+            (x_range[1], y_range[1], z_range[1]),
+        ),  # These coordinates were determined by me
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Detect and segment the pituitary gland using intensity thresholds and giving preference to
+        the naive mask region while considering all voxels within specified MNI coordinates.
+
+        Parameters:
+        update_mask (bool): Whether to update the saved pituitary mask file
+        mni_coords (tuple): Tuple of two 3D coordinates defining the bounding box in MNI space
+
+        Returns:
+        tuple: (coordinates of selected voxels, final binary mask)
+        """
+        if not self.pituitary_mask or not os.path.exists(self.pituitary_mask):
+            raise ValueError(
+                "Pituitary mask not found. Run __create_naive_pituitary_mask first."
+            )
+
+        # Load the mask and image data
+        mask_img = nib.load(self.pituitary_mask)
+        naive_mask_data = mask_img.get_fdata()
+        t1_img = nib.load(self.final_t1_mni)
+        t1_data = t1_img.get_fdata()
+
+        # Convert MNI coordinates to voxel space
+        mni_to_voxel = np.linalg.inv(t1_img.affine)
+
+        # Convert both min and max coordinates
+        voxel_coords_min = np.dot(mni_to_voxel, np.array([*mni_coords[0], 1]))[
+            :3
+        ].astype(int)
+        voxel_coords_max = np.dot(mni_to_voxel, np.array([*mni_coords[1], 1]))[
+            :3
+        ].astype(int)
+
+        # Ensure coordinates are ordered properly (min < max)
+        x_min, y_min, z_min = np.minimum(voxel_coords_min, voxel_coords_max)
+        x_max, y_max, z_max = np.maximum(voxel_coords_min, voxel_coords_max)
+
+        # Ensure coordinates are within image bounds
+        x_min = max(0, x_min)
+        y_min = max(0, y_min)
+        z_min = max(0, z_min)
+        x_max = min(t1_data.shape[0] - 1, x_max)
+        y_max = min(t1_data.shape[1] - 1, y_max)
+        z_max = min(t1_data.shape[2] - 1, z_max)
+
+        # Get coordinates and intensities for all voxels in the specified voxel space region
+        x_range = range(x_min, x_max + 1)
+        y_range = range(y_min, y_max + 1)
+        z_range = range(z_min, z_max + 1)
+        coords = np.array(np.meshgrid(x_range, y_range, z_range)).reshape(3, -1).T
+        intensities = t1_data[coords[:, 0], coords[:, 1], coords[:, 2]]
+
+        def get_connected_component(coords, mask_shape, centroid):
+            """Get the connected component containing the centroid"""
+            # Create 3D mask
+            temp_mask = np.zeros(mask_shape, dtype=bool)
+            temp_mask[coords[:, 0], coords[:, 1], coords[:, 2]] = True
+
+            # Find connected components
+            structure = np.ones((3, 3, 3), dtype=bool)  # 26-connectivity
+            labeled_array, num_features = label(temp_mask, structure=structure)
+
+            # Ensure centroid is within bounds
+            centroid = np.round(centroid).astype(int)
+            if np.all(centroid >= 0) and np.all(centroid < mask_shape):
+                if temp_mask[tuple(centroid)]:
+                    centroid_label = labeled_array[tuple(centroid)]
+                    connected_mask = labeled_array == centroid_label
+                    return connected_mask
+            return np.zeros(mask_shape, dtype=bool)
+
+        def calculate_clustering_scores(
+            coords, intensities, centroid, intensity_range, naive_mask, mask_shape
+        ):
+            """Calculate clustering scores based on multiple criteria"""
+            # Distance score (inverse of distance to centroid)
+            distances = np.linalg.norm(coords - centroid, axis=1)
+            distance_scores = 1 - (distances / np.max(distances))
+
+            # Intensity score
+            min_int, max_int = intensity_range
+            intensity_range_size = max_int - min_int
+            intensity_scores = np.zeros_like(intensities, dtype=float)
+
+            # Within range gets maximum score
+            within_range = (intensities >= min_int) & (intensities <= max_int)
+            intensity_scores[within_range] = 1.0
+
+            # Outside range gets decreasing score based on distance from range
+            below_range = intensities < min_int
+            above_range = intensities > max_int
+
+            intensity_scores[below_range] = 1 - np.minimum(
+                1, (min_int - intensities[below_range]) / intensity_range_size
+            )
+            intensity_scores[above_range] = 1 - np.minimum(
+                1, (intensities[above_range] - max_int) / intensity_range_size
+            )
+
+            # Naive mask presence score
+            naive_mask_scores = np.zeros_like(intensities, dtype=float)
+            naive_mask_scores[naive_mask] = 1.0
+
+            # Connectivity score - strongly prefer voxels connected to centroid
+            # First get high-scoring voxels based on other criteria
+            initial_scores = 0.5 * distance_scores + 0.5 * intensity_scores
+            high_score_mask = initial_scores >= np.percentile(initial_scores, 70)
+
+            # Get connected component from these high-scoring voxels
+            connected_mask = get_connected_component(
+                coords[high_score_mask], mask_shape, centroid
+            )
+
+            # Map back to all coordinates
+            connectivity_scores = np.zeros_like(intensities, dtype=float)
+            connectivity_scores[high_score_mask] = connected_mask[
+                tuple(coords[high_score_mask].T)
+            ]
+
+            # Combine scores with weights
+            final_scores = (
+                distance_weight * distance_scores
+                + intensity_range_weight * intensity_scores
+                + connectivity_weight * connectivity_scores
+                + naive_mask_weight * naive_mask_scores
+            )
+
+            # Print unique distance scores
+            print(f"Unique distance scores: {np.unique(distance_scores)}")
+
+            return final_scores
+
+        # Find initial centroid based on intensity-weighted center of naive mask region
+        naive_mask = naive_mask_data[coords[:, 0], coords[:, 1], coords[:, 2]] > 0
+        valid_intensities = (
+            (intensities >= intensity_range[0])
+            & (intensities <= intensity_range[1])
+            & naive_mask
+        )
+
+        if not np.any(valid_intensities):
+            raise ValueError(
+                "No voxels found within the specified intensity range in naive mask"
+            )
+
+        weighted_coords = coords[valid_intensities]
+        weights = intensities[valid_intensities]
+        centroid = np.average(weighted_coords, weights=weights, axis=0)
+
+        # Save centroid as nii.gz file for visualization
+        centroid_mask = np.zeros_like(naive_mask_data)
+        centroid_mask[
+            np.round(centroid[0]).astype(int),
+            np.round(centroid[1]).astype(int),
+            np.round(centroid[2]).astype(int),
+        ] = 1
+
+        centroid_img = nib.Nifti1Image(centroid_mask, mask_img.affine, mask_img.header)
+        self.centroid_mask = os.path.join(self.output_dir, PITUITARY_CENTROID_FILE)
+        nib.save(centroid_img, self.centroid_mask)
+
+        print(f"Initial centroid: {centroid}")
+
+        # Calculate clustering scores
+        scores = calculate_clustering_scores(
+            coords, intensities, centroid, intensity_range, naive_mask, t1_data.shape
+        )
+
+        # Create initial mask based on scores
+        selected_voxels = scores >= min_score_threshold
+
+        if np.sum(selected_voxels) > 0:
+            # Fit a GMM with 1 component (assume the gland region follows a Gaussian distribution)
+            gmm = GaussianMixture(
+                n_components=1, covariance_type="full", random_state=42
+            )
+            gmm.fit(coords[selected_voxels])
+
+            # Get the predicted probability of each voxel belonging to the gland region
+            probabilities = gmm.predict_proba(coords[selected_voxels])[
+                :, 0
+            ]  # Probabilities for the component
+
+            # Print all unique probabilities
+            print(f"Unique probabilities: {np.unique(probabilities)}")
+
+            # Define a probability threshold to retain high-confidence voxels
+            prob_threshold = cluster_prob_threshold  # Adjust as needed
+            # Print how many would be thresholded
+            print(f"Thresholding {np.sum(probabilities < prob_threshold)} voxels")
+            selected_voxels[selected_voxels] = probabilities >= prob_threshold
+
+        # Create final binary mask
+        final_mask = np.zeros_like(naive_mask_data)
+        final_mask[
+            coords[selected_voxels, 0],
+            coords[selected_voxels, 1],
+            coords[selected_voxels, 2],
+        ] = 1
+
+        # Save updated mask if requested
+        if update_mask:
+            new_img = nib.Nifti1Image(final_mask, mask_img.affine, mask_img.header)
+            nib.save(new_img, self.pituitary_mask)
+
+        show_mri_slices(
+            [
+                self.final_t1_mni,
+                self.pituitary_mask,
+                self.centroid_mask,
+            ],
+            slice_index=self.slice_indices,
+            titles=["Dynamic Mask Overlayed on T1w MNI"],
+            overlay=True,
+            colormaps=[
+                "gray",  # T1 image in grayscale
+                "hot",  # Mask in hot colors
+                "hot",  # Centroid in hot colors
+            ],
+        )
+
+        return coords[selected_voxels], final_mask
+
+    def __get_pituitary_statistics(self) -> dict:
+        """
+        Calculate statistics about the detected pituitary region
+
+        Returns:
+        dict: Dictionary containing various statistics about the pituitary region
+        """
+        if not self.pituitary_mask or not os.path.exists(self.pituitary_mask):
+            raise ValueError(
+                "Pituitary mask not found. Run __create_naive_pituitary_mask first."
+            )
+
+        mask_img = nib.load(self.pituitary_mask)
+        mask_data = mask_img.get_fdata()
+        t1_img = nib.load(self.final_t1_mni)
+        t1_data = t1_img.get_fdata()
+
+        # Get coordinates of mask voxels
+        mask_coords = np.array(np.where(mask_data > 0)).T
+
+        if len(mask_coords) == 0:
+            raise ValueError("No voxels found in pituitary mask")
+
+        # Calculate center of mass in voxel space
+        center_of_mass = np.mean(mask_coords, axis=0)
+
+        # Convert to MNI space
+        mni_center = np.dot(mask_img.affine, np.append(center_of_mass, 1))[:3]
+
+        # Get intensity statistics
+        mask_intensities = t1_data[
+            mask_coords[:, 0], mask_coords[:, 1], mask_coords[:, 2]
+        ]
+
+        self.final_mask_stats = {
+            "volume_voxels": len(mask_coords),
+            "volume_mm3": len(mask_coords)
+            * np.prod(np.abs(np.diag(mask_img.affine)[:3])),
+            "center_mni": mni_center,
+            "mean_intensity": np.mean(mask_intensities),
+            "min_intensity": np.min(mask_intensities),
+            "max_intensity": np.max(mask_intensities),
+            "std_intensity": np.std(mask_intensities),
+        }
 
     def __create_output_directory(self):
         """

@@ -63,3 +63,5 @@ T2_MNI_FILE = "T2w_motion_corrected_normalized_to_mni.nii.gz"
 # Pituitary Mask and Extraction
 # This is the pituitary mask in MNI space
 PITUITARY_MASK_FILE = "pituitary_mask.nii.gz"
+# This is the centroid of the naive pituitary mask in MNI space
+PITUITARY_CENTROID_FILE = "pituitary_centroid.nii.gz"
