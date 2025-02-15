@@ -109,13 +109,17 @@ class Subject:
             raise ValueError("Minimum score threshold must be between 0 and 1")
 
         if (
-            distance_weight
-            + intensity_range_weight
-            + connectivity_weight
-            + naive_mask_weight
-        ) != 1:
+            round(
+                distance_weight
+                + intensity_range_weight
+                + connectivity_weight
+                + naive_mask_weight,
+                10,
+            )
+            != 1
+        ):
             raise ValueError(
-                "Weights for distance, intensity, connectivity, and naive mask must add up to 1"
+                f"Weights for distance, intensity, connectivity, and naive mask must add up to 1 they are {distance_weight}, {intensity_range_weight}, {connectivity_weight}, {naive_mask_weight} adding to {distance_weight + intensity_range_weight + connectivity_weight + naive_mask_weight}"
             )
 
         if fractional_intensity_t1 < 0 or fractional_intensity_t1 > 1:
@@ -263,7 +267,6 @@ class Subject:
     def coregister_to_mni(
         self,
         mni_template_path: str = MNI_TEMPLATE,
-        previously_coregistered: bool = False,
     ) -> None:
         """
         Coregisters both the T1 and T2 images to the MNI template using affine and nonlinear warping.
@@ -279,7 +282,8 @@ class Subject:
         self.final_t1_mni = os.path.join(self.output_dir, T1_MNI_FILE)
         self.final_t2_mni = os.path.join(self.output_dir, T2_MNI_FILE)
 
-        if not previously_coregistered:
+        # If not previously coregistered and warp field exists, skip registration
+        if not os.path.exists(self.warp_field):
             print("Step 1: Computing transformation using smoothed T1 image...")
 
             # Compute Affine Transformation using FLIRT
@@ -370,15 +374,21 @@ class Subject:
 
         self.in_MNI_space = True
 
-    def complete_pituitary_analysis(self) -> Dict[str, float]:
+    def complete_pituitary_analysis(
+        self,
+        mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
+            (x_range[0], y_range[0], z_range[0]),
+            (x_range[1], y_range[1], z_range[1]),
+        ),
+    ) -> Dict[str, float]:
         """
         Function that creates a naive pituitary mask and then performs pituitary detection and segmentation.
         It then calculates statistics about the detected pituitary region.
 
         :return: Dictionary containing various statistics about the pituitary region
         """
-        self.__create_naive_pituitary_mask()
-        self.__create_dynamic_pituitary_mask()
+        self.__create_naive_pituitary_mask(mni_coords)
+        self.__create_dynamic_pituitary_mask(mni_coords=mni_coords)
         self.__get_pituitary_statistics()
         return self.final_mask_stats
 
