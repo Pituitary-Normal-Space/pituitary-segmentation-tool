@@ -19,7 +19,7 @@ intensity_range = (
     700,
 )  # Will need to normalize intensity first and then play around with this.
 #
-# Dynamic Masking Parameters
+# Dynamic Masking Parameters - Clustering-based
 #
 # This includes weights for various scores that are used to determine the pituitary gland.
 # These scores are based on:
@@ -36,6 +36,13 @@ naive_mask_weight = 0.0
 min_score_threshold = 0.75  # Range 0-1
 # This is the probability cut off to consider a voxel as part of the pituitary gland after clustering assigns probabilities to each voxel.
 cluster_dist_threshold = 0.75  # Range 0-1
+#
+# Dynamic Masking Parameters - Region Growing-based
+#
+# This is the allowed intensity variation for region growing
+intensity_tolerance = 0.1  # Range 0-1
+# Maximum number of voxels to consider for region growing
+max_voxels = 7000
 
 ####################################################
 # Preprocessing parameters

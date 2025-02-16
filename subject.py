@@ -398,16 +398,23 @@ class Subject:
         cluster=False,
     ) -> Dict[str, float]:
         """
-        Function that creates a naive pituitary mask and then performs pituitary detection and segmentation.
-        It then calculates statistics about the detected pituitary region.
+        Creates a probabilistic pituitary mask using both methods and calculates statistics.
 
         :param mni_coords: A tuple containing two MNI coordinate bounds to define the search region.
         :param cluster: Whether to use clustering to refine the pituitary mask
 
-        :return: Dictionary containing various statistics about the pituitary region
+        :return: Dictionary [str, float] containing various statistics about the pituitary region
         """
         self.__create_naive_pituitary_mask(mni_coords)
-        self.__create_dynamic_pituitary_mask(mni_coords=mni_coords)
+        prob_mask = self.__create_probabilistic_pituitary_mask(mni_coords)
+
+        # Convert probabilistic mask to binary for statistics using 0.5 threshold
+        binary_mask_img = nib.Nifti1Image(
+            (prob_mask > 0.5).astype(np.uint8), nib.load(self.final_t1_mni).affine
+        )
+        self.pituitary_mask = os.path.join(self.output_dir, PITUITARY_MASK_FILE)
+        nib.save(binary_mask_img, self.pituitary_mask)
+
         self.__get_pituitary_statistics()
         return self.final_mask_stats
 
@@ -774,6 +781,163 @@ class Subject:
         )
 
         return coords[selected_voxels], final_mask
+
+    def __create_probabilistic_pituitary_mask(
+        self,
+        mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
+            (x_range[0], y_range[0], z_range[0]),
+            (x_range[1], y_range[1], z_range[1]),
+        ),
+        dynamic_centroid: bool = False,
+    ) -> np.ndarray:
+        """
+        Create a probabilistic pituitary mask using both dynamic masking and region growing methods.
+
+        Parameters:
+        mni_coords: Tuple of boundary coordinates in MNI space
+        dynamic_centroid: Whether to use dynamic centroid calculation
+
+        Returns:
+        np.ndarray: Probabilistic mask where values represent confidence (0-1)
+        """
+        print("Creating probabilistic pituitary mask using combined methods...")
+
+        # Get the dynamic mask scores
+        _, dynamic_mask = self.__create_dynamic_pituitary_mask(
+            update_mask=False, mni_coords=mni_coords, dynamic_centroid=dynamic_centroid
+        )
+
+        # Get the region growing mask
+        t1_img = nib.load(self.final_t1_mni)
+        t1_data = t1_img.get_fdata()
+
+        # Get centroid in voxel space
+        mni_coords_pituitary = np.array([0, 2, -32, 1])
+        voxel_coords = np.dot(np.linalg.inv(t1_img.affine), mni_coords_pituitary)[:3]
+        centroid = np.round(voxel_coords).astype(int)
+
+        region_mask = self.__region_growing(t1_data, tuple(centroid))
+
+        # Create probabilistic mask
+        prob_mask = np.zeros_like(dynamic_mask, dtype=float)
+
+        # Assign probabilities based on voting
+        prob_mask[dynamic_mask > 0] += 0.5  # 50% confidence from dynamic method
+        prob_mask[region_mask > 0] += 0.5  # 50% confidence from region growing
+
+        # Save probabilistic mask
+        prob_mask_img = nib.Nifti1Image(prob_mask, t1_img.affine)
+        self.pituitary_mask = os.path.join(
+            self.output_dir, "prob_" + PITUITARY_MASK_FILE
+        )
+        nib.save(prob_mask_img, self.pituitary_mask)
+
+        # Visualize results
+        show_mri_slices(
+            [self.final_t1_mni, self.pituitary_mask],
+            slice_index=self.slice_indices,
+            titles=["T1w MNI with Probabilistic Mask"],
+            overlay=True,
+            colormaps=["gray", "viridis"],  # T1 image  # Probability map
+        )
+
+        print(f"Created probabilistic mask with values:")
+        print(f"- Both methods agree: {np.sum(prob_mask > 0.9)} voxels")
+        print(
+            f"- Single method only: {np.sum((prob_mask > 0.4) & (prob_mask < 0.6))} voxels"
+        )
+
+        return prob_mask
+
+    def __region_growing(self, image, seed, intensity_tol=150, max_voxels=1000):
+        """
+        Perform region growing segmentation from the given seed point.
+
+        :param image: 3D NumPy array of the T1 MRI
+        :param seed: Tuple (x, y, z) representing the centroid
+        :param intensity_tol: Allowed intensity variation for region growing
+        :param max_voxels: Upper limit for segmented region size (to prevent overgrowth)
+        :return: Binary mask of the segmented region
+        """
+        x, y, z = seed
+        seed_intensity = image[x, y, z]
+
+        mask = np.zeros_like(image, dtype=np.uint8)
+        mask[x, y, z] = 1  # Mark seed point as segmented
+
+        queue = [(x, y, z)]
+        count = 1
+
+        while queue and count < max_voxels:
+            cx, cy, cz = queue.pop(0)
+
+            # Check 6-connected neighbors
+            for dx, dy, dz in [
+                (-1, 0, 0),
+                (1, 0, 0),
+                (0, -1, 0),
+                (0, 1, 0),
+                (0, 0, -1),
+                (0, 0, 1),
+            ]:
+                nx, ny, nz = cx + dx, cy + dy, cz + dz
+
+                if (
+                    0 <= nx < image.shape[0]
+                    and 0 <= ny < image.shape[1]
+                    and 0 <= nz < image.shape[2]
+                    and mask[nx, ny, nz] == 0
+                    and abs(image[nx, ny, nz] - seed_intensity) < intensity_tol
+                ):
+
+                    mask[nx, ny, nz] = 1
+                    queue.append((nx, ny, nz))
+                    count += 1
+
+        return mask
+
+    def __alternative_pituitary_segmentation(self):
+        """
+        Alternative method for segmenting the pituitary gland using region growing.
+        """
+        if not self.final_t1_mni:
+            raise ValueError(
+                "Error: MRI not registered to MNI space. Run coregister_to_mni first."
+            )
+
+        # Load MRI data
+        t1_img = nib.load(self.final_t1_mni)
+        t1_data = t1_img.get_fdata()
+
+        mask_img = nib.load(self.pituitary_mask)
+
+        # Load previously determined pituitary centroid (in voxel space)
+        mni_coords_pituitary = np.array(
+            [0, 2, -32, 1]
+        )  # Adding 1 for homogeneous coordinates
+        # Get voxel coordinates using the inverse affine transformation
+        voxel_coords = np.dot(np.linalg.inv(mask_img.affine), mni_coords_pituitary)[:3]
+        centroid = np.round(voxel_coords).astype(int)
+        print(f"Using hard-coded centroid: {centroid} in voxel space")
+
+        # Perform region growing segmentation
+        mask = self.__region_growing(t1_data, tuple(centroid))
+
+        # Save mask as NIfTI file
+        output_nifti = nib.Nifti1Image(mask.astype(np.uint8), t1_img.affine)
+        self.pituitary_mask = os.path.join(self.output_dir, f"rg_{PITUITARY_MASK_FILE}")
+        nib.save(output_nifti, self.pituitary_mask)
+
+        # Show the segmented region
+        show_mri_slices(
+            [self.final_t1_mni, self.pituitary_mask],
+            slice_index=self.slice_indices,
+            titles=["T1w MNI with Segmented Pituitary"],
+            overlay=True,
+            colormaps=["gray", "hot"],
+        )
+
+        print("Alternative region-growing segmentation saved as", self.pituitary_mask)
 
     def __get_pituitary_statistics(self) -> dict:
         """
