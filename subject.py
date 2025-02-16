@@ -225,7 +225,8 @@ class Subject:
         self.__registration_and_normalization()
 
         print(
-            "Preprocessing completed successfully. Outputs stored in:", self.output_dir
+            "Preprocessing completed successfully. This means that the T1W image is in T2W image space and both are motion corrected. Outputs stored in:",
+            self.output_dir,
         )
 
         self.processeing_complete = True
@@ -244,8 +245,9 @@ class Subject:
         if not os.path.exists(self.registered_t1w) or not os.path.exists(
             self.motion_corrected_t2w
         ):
-            print("Error: Preprocessed MRI files not found. Run preprocess_MRIs first.")
-            return
+            raise FileNotFoundError(
+                "Preprocessed images not found. Run preprocess_MRIs first."
+            )
 
         # Overlay T1w and T2w images using FSL’s fslmaths
         subprocess.run(
@@ -262,7 +264,7 @@ class Subject:
         # Show a slice of the overlayed image
         show_mri_slices([self.overlay_output], titles=["T1w T2w Overlay MRI"])
 
-        print(f"Overlay completed. Output saved at {self.overlay_output}.")
+        print(f"Overlaying MRIs completed. Output saved at {self.overlay_output}.")
 
     def coregister_to_mni(
         self,
@@ -284,7 +286,9 @@ class Subject:
 
         # If not previously coregistered and warp field exists, skip registration
         if not os.path.exists(self.warp_field):
-            print("Step 1: Computing transformation using smoothed T1 image...")
+            print(
+                "Transforming to MNI space using smoothed T1 image... Starting with affine linear registration."
+            )
 
             # Compute Affine Transformation using FLIRT
             subprocess.run(
@@ -302,7 +306,9 @@ class Subject:
                 check=True,
             )
 
-            print("Affine registration to MNI completed.")
+            print(
+                "Affine registration to MNI completed. Starting non-linear registration. This may take a while..."
+            )
 
             # Compute Nonlinear Warp using FNIRT
             subprocess.run(
@@ -320,11 +326,15 @@ class Subject:
                 check=True,
             )
 
-            print("Nonlinear registration (FNIRT) to MNI completed.")
+            print(
+                f"Nonlinear registration (FNIRT) to MNI completed. Warp file is saved at {self.warp_field}"
+            )
 
         # Step 3: Apply the Transformation to Non-blurry Motion-Corrected Images
 
-        print("Step 3: Applying transformations to motion-corrected images...")
+        print(
+            "Applying warp transformations to motion-corrected images for T1 and T2 images..."
+        )
 
         # Apply affine + nonlinear warp to motion-corrected T1
         subprocess.run(
@@ -342,7 +352,9 @@ class Subject:
             check=True,
         )
 
-        print(f"T1 Motion Corrected Image Registered to MNI: {self.final_t1_mni}")
+        print(
+            f"T1 Motion Corrected Image Registered to MNI. Located here: {self.final_t1_mni}"
+        )
 
         # Apply affine + nonlinear warp to motion-corrected T2
         subprocess.run(
@@ -360,7 +372,9 @@ class Subject:
             check=True,
         )
 
-        print(f"T2 Motion Corrected Image Registered to MNI: {self.final_t2_mni}")
+        print(
+            f"T2 Motion Corrected Image Registered to MNI. Located here: {self.final_t2_mni}"
+        )
 
         # Show results
         show_mri_slices(
@@ -405,11 +419,11 @@ class Subject:
         :param mni_coords: A tuple containing two MNI coordinate bounds to define the search region.
         :return: The MNI coordinates of the detected pituitary gland location.
         """
+        print("Creating naive pituitary mask...")
         if not self.final_t1_mni:
-            print(
-                "Error: MRI not registered to MNI space. Run coregister_to_mni first."
+            raise FileNotFoundError(
+                "T1 MRI image in MNI space not found. Run coregister_to_mni first."
             )
-            return None
 
         # Define the output mask file
         self.pituitary_mask = os.path.join(self.output_dir, PITUITARY_MASK_FILE)
@@ -425,12 +439,14 @@ class Subject:
             - voxel_coords
         )
 
-        print(f"Voxel Start: {voxel_coords}")
-        print(f"Voxel Size: {voxel_size}")
-
         # Set start x, y, z and size x, y, z
         start_x, start_y, start_z = voxel_coords
         size_x, size_y, size_z = voxel_size
+
+        print(
+            f"Naive pituitary mask ROI start coordinates: {start_x, start_y, start_z}"
+        )
+        print(f"Naive pituitary mask ROI sizes: {size_x, size_y, size_z}")
 
         cmd_mask = [
             "fslmaths",
@@ -507,6 +523,7 @@ class Subject:
             (x_range[0], y_range[0], z_range[0]),
             (x_range[1], y_range[1], z_range[1]),
         ),  # These coordinates were determined by me
+        dynamic_centroid: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Detect and segment the pituitary gland using intensity thresholds and giving preference to
@@ -515,10 +532,14 @@ class Subject:
         Parameters:
         update_mask (bool): Whether to update the saved pituitary mask file
         mni_coords (tuple): Tuple of two 3D coordinates defining the bounding box in MNI space
+        dynamic_centroid (bool): Whether to use the naive mask centroid as the clustering centroid or use hard-coded values of the pituitary region
+            Hard coded values are (0, 2, -32) in MNI space.
 
         Returns:
         tuple: (coordinates of selected voxels, final binary mask)
         """
+        print("Creating dynamic pituitary mask...")
+
         if not self.pituitary_mask or not os.path.exists(self.pituitary_mask):
             raise ValueError(
                 "Pituitary mask not found. Run __create_naive_pituitary_mask first."
@@ -635,27 +656,40 @@ class Subject:
                 + naive_mask_weight * naive_mask_scores
             )
 
-            # Print unique distance scores
-            print(f"Unique distance scores: {np.unique(distance_scores)}")
-
             return final_scores
 
-        # Find initial centroid based on intensity-weighted center of naive mask region
         naive_mask = naive_mask_data[coords[:, 0], coords[:, 1], coords[:, 2]] > 0
-        valid_intensities = (
-            (intensities >= intensity_range[0])
-            & (intensities <= intensity_range[1])
-            & naive_mask
-        )
 
-        if not np.any(valid_intensities):
-            raise ValueError(
-                "No voxels found within the specified intensity range in naive mask"
+        if dynamic_centroid:
+            valid_intensities = (
+                (intensities >= intensity_range[0])
+                & (intensities <= intensity_range[1])
+                & naive_mask
             )
 
-        weighted_coords = coords[valid_intensities]
-        weights = intensities[valid_intensities]
-        centroid = np.average(weighted_coords, weights=weights, axis=0)
+            if not np.any(valid_intensities):
+                raise ValueError(
+                    "No voxels found within the specified intensity range in naive mask"
+                )
+            # Need to revise this is taking place correctly...
+            # Find initial centroid based on intensity-weighted center of naive mask region
+            weighted_coords = coords[valid_intensities]
+            weights = intensities[valid_intensities]
+            centroid = np.average(weighted_coords, weights=weights, axis=0)
+            print(f"Using dynamic centroid: {centroid} in voxel space")
+
+        else:
+            # Replace the current coordinate transformation code with:
+            # Initial MNI coordinates for pituitary
+            mni_coords_pituitary = np.array(
+                [0, 2, -32, 1]
+            )  # Adding 1 for homogeneous coordinates
+            # Get voxel coordinates using the inverse affine transformation
+            voxel_coords = np.dot(np.linalg.inv(mask_img.affine), mni_coords_pituitary)[
+                :3
+            ]
+            centroid = np.round(voxel_coords).astype(int)
+            print(f"Using hard-coded centroid: {centroid} in voxel space")
 
         # Save centroid as nii.gz file for visualization
         centroid_mask = np.zeros_like(naive_mask_data)
@@ -668,8 +702,6 @@ class Subject:
         centroid_img = nib.Nifti1Image(centroid_mask, mask_img.affine, mask_img.header)
         self.centroid_mask = os.path.join(self.output_dir, PITUITARY_CENTROID_FILE)
         nib.save(centroid_img, self.centroid_mask)
-
-        print(f"Initial centroid: {centroid}")
 
         # Calculate clustering scores
         scores = calculate_clustering_scores(
@@ -704,6 +736,8 @@ class Subject:
         if update_mask:
             new_img = nib.Nifti1Image(final_mask, mask_img.affine, mask_img.header)
             nib.save(new_img, self.pituitary_mask)
+
+        print(f"Dynamic pituitary mask created with {np.sum(selected_voxels)} voxels")
 
         show_mri_slices(
             [
@@ -803,6 +837,8 @@ class Subject:
         Returns:
         dict: Dictionary containing various statistics about the pituitary region
         """
+        print("Calculating pituitary statistics...")
+
         if not self.pituitary_mask or not os.path.exists(self.pituitary_mask):
             raise ValueError(
                 "Pituitary mask not found. Run __create_naive_pituitary_mask first."
@@ -841,6 +877,8 @@ class Subject:
             "std_intensity": np.std(mask_intensities),
         }
 
+        print("Completed pituitary statistics calculation:")
+
     def __create_output_directory(self):
         """
         Create output directory structure.
@@ -857,7 +895,7 @@ class Subject:
         """
         Performs brain extraction using FSL's BET tool and extracts the brain including the pituitary.
         """
-        print("Step 1: Brain extraction using BET (FSL)...")
+        print("Extracting the brain using BET (FSL)...")
 
         # Step 1: Brain Extraction using BET (Removes non-brain tissues like the skull)
         t1w_brain = os.path.join(self.output_dir, T1_BRAIN_FILE)
@@ -900,7 +938,7 @@ class Subject:
         """
         Perform motion correction and smoothing using FEAT.
         """
-        print("Step 2: Motion Correction & Smoothing using FEAT...")
+        print("Correcting for motion artifact & smoothing using FEAT...")
 
         self.motion_corrected_t1w = os.path.join(self.output_dir, T1_MC_FILE)
         self.motion_corrected_t2w = os.path.join(self.output_dir, T2_MC_FILE)
@@ -955,7 +993,7 @@ class Subject:
         """
         Perform registration and normalization using FLIRT and FNIRT.
         """
-        print("Step 3: Registration & Normalization using FLIRT...")
+        print("Completing registration & normalization using FLIRT...")
 
         # Paths
         self.registered_t1w = os.path.join(self.output_dir, T1_SMOOTH_REGISTERED_FILE)
@@ -995,7 +1033,7 @@ class Subject:
             check=True,
         )
 
-        print("Affine Normalization Completed.")
+        print("Affine Normalization Completed. T1 MRI in T2 Space.")
 
         # Display results
         show_mri_slices(

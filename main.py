@@ -18,7 +18,7 @@ def main() -> None:
     )
     for subject in subject_list:
         subject.setup_pituitary_analysis()
-        # print(subject)
+        print(subject)
         # subject.preprocess_MRIs()
         # subject.overlay_MRIs()
         # subject.coregister_to_mni()
