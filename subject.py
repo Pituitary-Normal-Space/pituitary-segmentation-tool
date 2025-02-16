@@ -11,7 +11,8 @@ from typing import Literal, Tuple, Dict
 import numpy as np
 import nibabel as nib
 from scipy.ndimage import label
-from sklearn.mixture import GaussianMixture
+
+# sfrom sklearn.mixture import GaussianMixture
 from sklearn.cluster import KMeans
 
 
@@ -739,19 +740,31 @@ class Subject:
 
         print(f"Dynamic pituitary mask created with {np.sum(selected_voxels)} voxels")
 
+        # Create a scores visualization volume
+        scores_volume = np.zeros_like(naive_mask_data)
+        scores_volume[coords[:, 0], coords[:, 1], coords[:, 2]] = scores
+
+        # Save scores as a NIfTI file for visualization
+        scores_img = nib.Nifti1Image(scores_volume, mask_img.affine, mask_img.header)
+        scores_path = os.path.join(self.output_dir, "pituitary_scores.nii.gz")
+        nib.save(scores_img, scores_path)
+
+        # Show the original visualization with an additional scores view
         show_mri_slices(
             [
                 self.final_t1_mni,
                 self.pituitary_mask,
                 self.centroid_mask,
+                scores_path,
             ],
             slice_index=self.slice_indices,
-            titles=["Dynamic Mask Overlayed on T1w MNI"],
+            titles=["T1w MNI with mask and scores"],
             overlay=True,
             colormaps=[
                 "gray",  # T1 image in grayscale
-                "hot",  # Mask in hot colors
+                "hot",  # Binary mask in hot colors
                 "hot",  # Centroid in hot colors
+                "viridis",  # Scores in viridis colormap
             ],
         )
 
