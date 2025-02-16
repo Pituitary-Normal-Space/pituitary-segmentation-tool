@@ -395,10 +395,14 @@ class Subject:
             (x_range[0], y_range[0], z_range[0]),
             (x_range[1], y_range[1], z_range[1]),
         ),
+        cluster=False,
     ) -> Dict[str, float]:
         """
         Function that creates a naive pituitary mask and then performs pituitary detection and segmentation.
         It then calculates statistics about the detected pituitary region.
+
+        :param mni_coords: A tuple containing two MNI coordinate bounds to define the search region.
+        :param cluster: Whether to use clustering to refine the pituitary mask
 
         :return: Dictionary containing various statistics about the pituitary region
         """
@@ -525,6 +529,7 @@ class Subject:
             (x_range[1], y_range[1], z_range[1]),
         ),  # These coordinates were determined by me
         dynamic_centroid: bool = False,
+        cluster=False,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Detect and segment the pituitary gland using intensity thresholds and giving preference to
@@ -713,7 +718,7 @@ class Subject:
         selected_voxels = scores >= min_score_threshold
 
         # Use KMeans for selecting the most relevant voxels
-        if np.sum(selected_voxels) > 0:
+        if np.sum(selected_voxels) > 0 and cluster:
             clustering = KMeans(n_clusters=1, n_init=10, random_state=42).fit(
                 coords[selected_voxels]
             )
