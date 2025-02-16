@@ -13,9 +13,9 @@ show_images = True
 #
 # This range of values is the X, Y, and Z coordinates of the pituitary gland in the MRI image.
 # These are values of MNI space coordinates.
-x_range = (-10, 12)
-y_range = (-3, 9)
-z_range = (-39, -27)
+x_range = (-10, 12)  # Width of 24
+y_range = (-3, 9)  # Height of 12
+z_range = (-40, -26)  # Depth of 12
 # This is the range of intensities that are considered to be part of the pituitary gland.
 # This is used to create a mask of the pituitary gland.
 intensity_range = (
@@ -32,12 +32,12 @@ intensity_range = (
 #   - Connectivity with the centroid
 #   - Being a part of the naive mask
 # Must add up to 1.
-distance_weight = 0.3
-intensity_range_weight = 0.6
-connectivity_weight = 0.1
+distance_weight = 0.4
+intensity_range_weight = 0.4
+connectivity_weight = 0.2
 naive_mask_weight = 0.0
 # This is the minimum score threshold for a voxel to be a candidate for clustering as part of the pituitary gland.
-min_score_threshold = 0.775  # Range 0-1
+min_score_threshold = 0.6  # Range 0-1
 # This is the probability cut off to consider a voxel as part of the pituitary gland after clustering assigns probabilities to each voxel.
 cluster_dist_threshold = 0.75  # Range 0-1
 #

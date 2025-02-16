@@ -124,7 +124,7 @@ def show_mri_slices(
             if titles:
                 if overlay:
                     ax[i][j].set_title(
-                        f"Overlaid Images - {['Axial', 'Sagittal', 'Coronal'][j]}"
+                        f"{titles[i]} - {['Axial', 'Sagittal', 'Coronal'][j]}"
                     )
                 else:
                     ax[i][j].set_title(
