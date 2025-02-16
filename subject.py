@@ -659,18 +659,18 @@ class Subject:
             return final_scores
 
         naive_mask = naive_mask_data[coords[:, 0], coords[:, 1], coords[:, 2]] > 0
-        valid_intensities = (
-            (intensities >= intensity_range[0])
-            & (intensities <= intensity_range[1])
-            & naive_mask
-        )
-
-        if not np.any(valid_intensities):
-            raise ValueError(
-                "No voxels found within the specified intensity range in naive mask"
-            )
 
         if dynamic_centroid:
+            valid_intensities = (
+                (intensities >= intensity_range[0])
+                & (intensities <= intensity_range[1])
+                & naive_mask
+            )
+
+            if not np.any(valid_intensities):
+                raise ValueError(
+                    "No voxels found within the specified intensity range in naive mask"
+                )
             # Need to revise this is taking place correctly...
             # Find initial centroid based on intensity-weighted center of naive mask region
             weighted_coords = coords[valid_intensities]

@@ -28,14 +28,14 @@ intensity_range = (
 #   - Connectivity with the centroid
 #   - Being a part of the naive mask
 # Must add up to 1.
-distance_weight = 0.35
-intensity_range_weight = 0.3
-connectivity_weight = 0.35
+distance_weight = 0.1
+intensity_range_weight = 0.5
+connectivity_weight = 0.4
 naive_mask_weight = 0.0
 # This is the minimum score threshold for a voxel to be a candidate for clustering as part of the pituitary gland.
-min_score_threshold = 0.825  # Range 0-1
+min_score_threshold = 0.85  # Range 0-1
 # This is the probability cut off to consider a voxel as part of the pituitary gland after clustering assigns probabilities to each voxel.
-cluster_dist_threshold = 0.9  # Range 0-1
+cluster_dist_threshold = 0.85  # Range 0-1
 
 ####################################################
 # Preprocessing parameters
