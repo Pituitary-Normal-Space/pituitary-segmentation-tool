@@ -723,6 +723,79 @@ class Subject:
 
         return coords[selected_voxels], final_mask
 
+    def region_growing(image, seed, intensity_tol=0.1, max_voxels=700):
+        """
+        Perform region growing segmentation from the given seed point.
+
+        :param image: 3D NumPy array of the T1 MRI
+        :param seed: Tuple (x, y, z) representing the centroid
+        :param intensity_tol: Allowed intensity variation for region growing
+        :param max_voxels: Upper limit for segmented region size (to prevent overgrowth)
+        :return: Binary mask of the segmented region
+        """
+        x, y, z = seed
+        seed_intensity = image[x, y, z]
+
+        mask = np.zeros_like(image, dtype=np.uint8)
+        mask[x, y, z] = 1  # Mark seed point as segmented
+
+        queue = [(x, y, z)]
+        count = 1
+
+        while queue and count < max_voxels:
+            cx, cy, cz = queue.pop(0)
+
+            # Check 6-connected neighbors
+            for dx, dy, dz in [
+                (-1, 0, 0),
+                (1, 0, 0),
+                (0, -1, 0),
+                (0, 1, 0),
+                (0, 0, -1),
+                (0, 0, 1),
+            ]:
+                nx, ny, nz = cx + dx, cy + dy, cz + dz
+
+                if (
+                    0 <= nx < image.shape[0]
+                    and 0 <= ny < image.shape[1]
+                    and 0 <= nz < image.shape[2]
+                    and mask[nx, ny, nz] == 0
+                    and abs(image[nx, ny, nz] - seed_intensity) < intensity_tol
+                ):
+
+                    mask[nx, ny, nz] = 1
+                    queue.append((nx, ny, nz))
+                    count += 1
+
+        return mask
+
+    def alternative_pituitary_segmentation(self):
+        """
+        Alternative method for segmenting the pituitary gland using region growing.
+        """
+        if not self.final_t1_mni:
+            raise ValueError(
+                "Error: MRI not registered to MNI space. Run coregister_to_mni first."
+            )
+
+        # Load MRI data
+        t1_img = nib.load(self.final_t1_mni)
+        t1_data = t1_img.get_fdata()
+
+        # Load previously determined pituitary centroid (in voxel space)
+        centroid = np.loadtxt(self.pituitary_centroid_file).astype(int)
+
+        # Perform region growing segmentation
+        mask = self.region_growing(t1_data, tuple(centroid))
+
+        # Save mask as NIfTI file
+        output_nifti = nib.Nifti1Image(mask.astype(np.uint8), t1_img.affine)
+        self.pituitary_mask = "segmented_pituitary.nii.gz"
+        nib.save(output_nifti, self.pituitary_mask)
+
+        print("Alternative region-growing segmentation saved as", self.pituitary_mask)
+
     def __get_pituitary_statistics(self) -> dict:
         """
         Calculate statistics about the detected pituitary region
