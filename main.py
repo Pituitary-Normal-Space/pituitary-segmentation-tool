@@ -21,7 +21,7 @@ def main() -> None:
         print(subject)
         # subject.preprocess_MRIs()
         # subject.overlay_MRIs()
-        # subject.coregister_to_mni(previously_coregistered=True)
+        # subject.coregister_to_mni()
         subject.complete_pituitary_analysis()
         print(subject)
 

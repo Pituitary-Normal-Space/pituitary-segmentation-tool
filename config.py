@@ -10,13 +10,16 @@
 # This range of values is the X, Y, and Z coordinates of the pituitary gland in the MRI image.
 # These are values of MNI space coordinates.
 x_range = (-10, 12)
-y_range = (-3, 10)
-z_range = (-39, -26)
+y_range = (-3, 9)
+z_range = (-39, -27)
 # This is the range of intensities that are considered to be part of the pituitary gland.
 # This is used to create a mask of the pituitary gland.
-intensity_range = (300, 800)
+intensity_range = (
+    300,
+    700,
+)  # Will need to normalize intensity first and then play around with this.
 #
-# Dynamic Masking Parameters
+# Dynamic Masking Parameters - Clustering-based
 #
 # This includes weights for various scores that are used to determine the pituitary gland.
 # These scores are based on:
@@ -25,14 +28,21 @@ intensity_range = (300, 800)
 #   - Connectivity with the centroid
 #   - Being a part of the naive mask
 # Must add up to 1.
-distance_weight = 0.3
-intensity_range_weight = 0.3
-connectivity_weight = 0.2
-naive_mask_weight = 0.2
+distance_weight = 0.45
+intensity_range_weight = 0.5
+connectivity_weight = 0.05
+naive_mask_weight = 0.0
 # This is the minimum score threshold for a voxel to be a candidate for clustering as part of the pituitary gland.
-min_score_threshold = 0.825  # Range 0-1
+min_score_threshold = 0.75  # Range 0-1
 # This is the probability cut off to consider a voxel as part of the pituitary gland after clustering assigns probabilities to each voxel.
-cluster_prob_threshold = 0.99  # Range 0-1
+cluster_dist_threshold = 0.75  # Range 0-1
+#
+# Dynamic Masking Parameters - Region Growing-based
+#
+# This is the allowed intensity variation for region growing
+intensity_tolerance = 0.1  # Range 0-1
+# Maximum number of voxels to consider for region growing
+max_voxels = 7000
 
 ####################################################
 # Preprocessing parameters
@@ -65,8 +75,6 @@ smoothing_sigma = 0.75
 # Non-linear registration parameters
 #
 # Specifies the order of the B-spline functions modelling the warp-fields. A spline-function is a piecewise continuous polynomial-function and the order of the spline determines the order of the polynomial and the support of the spline. In fnirt one can use splines of order 2 (quadratic) or 3 (the "well known" cubic B-spline).
-spline_order = 2  # 2 or 3, default is 3 but 2 is faster
+spline_order = 3  # 2 or 3, default is 3 but 2 is faster
 # Its value can be either float or double (default) and it specifies the precision that the hessian H is calculated and stored in. Changing this to float will decrease the amount of RAM needed to store H and will hence allow one to go to slightly higher warp-resolution. The default is double since that is what we have used for most of the testing and validation.
-hessian_precision = (
-    "float"  # float or double, default is dobule but float is faster and takes less ram
-)
+hessian_precision = "double"  # float or double, default is dobule but float is faster and takes less ram

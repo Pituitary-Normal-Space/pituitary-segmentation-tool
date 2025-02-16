@@ -11,7 +11,10 @@ from typing import Literal, Tuple, Dict
 import numpy as np
 import nibabel as nib
 from scipy.ndimage import label
-from sklearn.mixture import GaussianMixture
+
+# sfrom sklearn.mixture import GaussianMixture
+from sklearn.cluster import KMeans
+
 
 # Local libs
 from config import (
@@ -32,7 +35,7 @@ from config import (
     connectivity_weight,
     naive_mask_weight,
     min_score_threshold,
-    cluster_prob_threshold,
+    cluster_dist_threshold,
 )
 from const import (
     T1_BRAIN_FILE,
@@ -107,13 +110,17 @@ class Subject:
             raise ValueError("Minimum score threshold must be between 0 and 1")
 
         if (
-            distance_weight
-            + intensity_range_weight
-            + connectivity_weight
-            + naive_mask_weight
-        ) != 1:
+            round(
+                distance_weight
+                + intensity_range_weight
+                + connectivity_weight
+                + naive_mask_weight,
+                10,
+            )
+            != 1
+        ):
             raise ValueError(
-                "Weights for distance, intensity, connectivity, and naive mask must add up to 1"
+                f"Weights for distance, intensity, connectivity, and naive mask must add up to 1 they are {distance_weight}, {intensity_range_weight}, {connectivity_weight}, {naive_mask_weight} adding to {distance_weight + intensity_range_weight + connectivity_weight + naive_mask_weight}"
             )
 
         if fractional_intensity_t1 < 0 or fractional_intensity_t1 > 1:
@@ -219,7 +226,8 @@ class Subject:
         self.__registration_and_normalization()
 
         print(
-            "Preprocessing completed successfully. Outputs stored in:", self.output_dir
+            "Preprocessing completed successfully. This means that the T1W image is in T2W image space and both are motion corrected. Outputs stored in:",
+            self.output_dir,
         )
 
         self.processeing_complete = True
@@ -238,8 +246,9 @@ class Subject:
         if not os.path.exists(self.registered_t1w) or not os.path.exists(
             self.motion_corrected_t2w
         ):
-            print("Error: Preprocessed MRI files not found. Run preprocess_MRIs first.")
-            return
+            raise FileNotFoundError(
+                "Preprocessed images not found. Run preprocess_MRIs first."
+            )
 
         # Overlay T1w and T2w images using FSL’s fslmaths
         subprocess.run(
@@ -256,12 +265,11 @@ class Subject:
         # Show a slice of the overlayed image
         show_mri_slices([self.overlay_output], titles=["T1w T2w Overlay MRI"])
 
-        print(f"Overlay completed. Output saved at {self.overlay_output}.")
+        print(f"Overlaying MRIs completed. Output saved at {self.overlay_output}.")
 
     def coregister_to_mni(
         self,
         mni_template_path: str = MNI_TEMPLATE,
-        previously_coregistered: bool = False,
     ) -> None:
         """
         Coregisters both the T1 and T2 images to the MNI template using affine and nonlinear warping.
@@ -277,8 +285,11 @@ class Subject:
         self.final_t1_mni = os.path.join(self.output_dir, T1_MNI_FILE)
         self.final_t2_mni = os.path.join(self.output_dir, T2_MNI_FILE)
 
-        if not previously_coregistered:
-            print("Step 1: Computing transformation using smoothed T1 image...")
+        # If not previously coregistered and warp field exists, skip registration
+        if not os.path.exists(self.warp_field):
+            print(
+                "Transforming to MNI space using smoothed T1 image... Starting with affine linear registration."
+            )
 
             # Compute Affine Transformation using FLIRT
             subprocess.run(
@@ -296,7 +307,9 @@ class Subject:
                 check=True,
             )
 
-            print("Affine registration to MNI completed.")
+            print(
+                "Affine registration to MNI completed. Starting non-linear registration. This may take a while..."
+            )
 
             # Compute Nonlinear Warp using FNIRT
             subprocess.run(
@@ -314,11 +327,15 @@ class Subject:
                 check=True,
             )
 
-            print("Nonlinear registration (FNIRT) to MNI completed.")
+            print(
+                f"Nonlinear registration (FNIRT) to MNI completed. Warp file is saved at {self.warp_field}"
+            )
 
         # Step 3: Apply the Transformation to Non-blurry Motion-Corrected Images
 
-        print("Step 3: Applying transformations to motion-corrected images...")
+        print(
+            "Applying warp transformations to motion-corrected images for T1 and T2 images..."
+        )
 
         # Apply affine + nonlinear warp to motion-corrected T1
         subprocess.run(
@@ -336,7 +353,9 @@ class Subject:
             check=True,
         )
 
-        print(f"T1 Motion Corrected Image Registered to MNI: {self.final_t1_mni}")
+        print(
+            f"T1 Motion Corrected Image Registered to MNI. Located here: {self.final_t1_mni}"
+        )
 
         # Apply affine + nonlinear warp to motion-corrected T2
         subprocess.run(
@@ -354,7 +373,9 @@ class Subject:
             check=True,
         )
 
-        print(f"T2 Motion Corrected Image Registered to MNI: {self.final_t2_mni}")
+        print(
+            f"T2 Motion Corrected Image Registered to MNI. Located here: {self.final_t2_mni}"
+        )
 
         # Show results
         show_mri_slices(
@@ -368,15 +389,32 @@ class Subject:
 
         self.in_MNI_space = True
 
-    def complete_pituitary_analysis(self) -> Dict[str, float]:
+    def complete_pituitary_analysis(
+        self,
+        mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
+            (x_range[0], y_range[0], z_range[0]),
+            (x_range[1], y_range[1], z_range[1]),
+        ),
+        cluster=False,
+    ) -> Dict[str, float]:
         """
-        Function that creates a naive pituitary mask and then performs pituitary detection and segmentation.
-        It then calculates statistics about the detected pituitary region.
+        Creates a probabilistic pituitary mask using both methods and calculates statistics.
 
-        :return: Dictionary containing various statistics about the pituitary region
+        :param mni_coords: A tuple containing two MNI coordinate bounds to define the search region.
+        :param cluster: Whether to use clustering to refine the pituitary mask
+
+        :return: Dictionary [str, float] containing various statistics about the pituitary region
         """
-        self.__create_naive_pituitary_mask()
-        self.__create_dynamic_pituitary_mask()
+        self.__create_naive_pituitary_mask(mni_coords)
+        prob_mask = self.__create_probabilistic_pituitary_mask(mni_coords)
+
+        # Convert probabilistic mask to binary for statistics using 0.5 threshold
+        binary_mask_img = nib.Nifti1Image(
+            (prob_mask > 0.5).astype(np.uint8), nib.load(self.final_t1_mni).affine
+        )
+        self.pituitary_mask = os.path.join(self.output_dir, PITUITARY_MASK_FILE)
+        nib.save(binary_mask_img, self.pituitary_mask)
+
         self.__get_pituitary_statistics()
         return self.final_mask_stats
 
@@ -393,11 +431,11 @@ class Subject:
         :param mni_coords: A tuple containing two MNI coordinate bounds to define the search region.
         :return: The MNI coordinates of the detected pituitary gland location.
         """
+        print("Creating naive pituitary mask...")
         if not self.final_t1_mni:
-            print(
-                "Error: MRI not registered to MNI space. Run coregister_to_mni first."
+            raise FileNotFoundError(
+                "T1 MRI image in MNI space not found. Run coregister_to_mni first."
             )
-            return None
 
         # Define the output mask file
         self.pituitary_mask = os.path.join(self.output_dir, PITUITARY_MASK_FILE)
@@ -413,12 +451,14 @@ class Subject:
             - voxel_coords
         )
 
-        print(f"Voxel Start: {voxel_coords}")
-        print(f"Voxel Size: {voxel_size}")
-
         # Set start x, y, z and size x, y, z
         start_x, start_y, start_z = voxel_coords
         size_x, size_y, size_z = voxel_size
+
+        print(
+            f"Naive pituitary mask ROI start coordinates: {start_x, start_y, start_z}"
+        )
+        print(f"Naive pituitary mask ROI sizes: {size_x, size_y, size_z}")
 
         cmd_mask = [
             "fslmaths",
@@ -495,6 +535,8 @@ class Subject:
             (x_range[0], y_range[0], z_range[0]),
             (x_range[1], y_range[1], z_range[1]),
         ),  # These coordinates were determined by me
+        dynamic_centroid: bool = False,
+        cluster=False,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Detect and segment the pituitary gland using intensity thresholds and giving preference to
@@ -503,10 +545,14 @@ class Subject:
         Parameters:
         update_mask (bool): Whether to update the saved pituitary mask file
         mni_coords (tuple): Tuple of two 3D coordinates defining the bounding box in MNI space
+        dynamic_centroid (bool): Whether to use the naive mask centroid as the clustering centroid or use hard-coded values of the pituitary region
+            Hard coded values are (0, 2, -32) in MNI space.
 
         Returns:
         tuple: (coordinates of selected voxels, final binary mask)
         """
+        print("Creating dynamic pituitary mask...")
+
         if not self.pituitary_mask or not os.path.exists(self.pituitary_mask):
             raise ValueError(
                 "Pituitary mask not found. Run __create_naive_pituitary_mask first."
@@ -623,27 +669,40 @@ class Subject:
                 + naive_mask_weight * naive_mask_scores
             )
 
-            # Print unique distance scores
-            print(f"Unique distance scores: {np.unique(distance_scores)}")
-
             return final_scores
 
-        # Find initial centroid based on intensity-weighted center of naive mask region
         naive_mask = naive_mask_data[coords[:, 0], coords[:, 1], coords[:, 2]] > 0
-        valid_intensities = (
-            (intensities >= intensity_range[0])
-            & (intensities <= intensity_range[1])
-            & naive_mask
-        )
 
-        if not np.any(valid_intensities):
-            raise ValueError(
-                "No voxels found within the specified intensity range in naive mask"
+        if dynamic_centroid:
+            valid_intensities = (
+                (intensities >= intensity_range[0])
+                & (intensities <= intensity_range[1])
+                & naive_mask
             )
 
-        weighted_coords = coords[valid_intensities]
-        weights = intensities[valid_intensities]
-        centroid = np.average(weighted_coords, weights=weights, axis=0)
+            if not np.any(valid_intensities):
+                raise ValueError(
+                    "No voxels found within the specified intensity range in naive mask"
+                )
+            # Need to revise this is taking place correctly...
+            # Find initial centroid based on intensity-weighted center of naive mask region
+            weighted_coords = coords[valid_intensities]
+            weights = intensities[valid_intensities]
+            centroid = np.average(weighted_coords, weights=weights, axis=0)
+            print(f"Using dynamic centroid: {centroid} in voxel space")
+
+        else:
+            # Replace the current coordinate transformation code with:
+            # Initial MNI coordinates for pituitary
+            mni_coords_pituitary = np.array(
+                [0, 2, -32, 1]
+            )  # Adding 1 for homogeneous coordinates
+            # Get voxel coordinates using the inverse affine transformation
+            voxel_coords = np.dot(np.linalg.inv(mask_img.affine), mni_coords_pituitary)[
+                :3
+            ]
+            centroid = np.round(voxel_coords).astype(int)
+            print(f"Using hard-coded centroid: {centroid} in voxel space")
 
         # Save centroid as nii.gz file for visualization
         centroid_mask = np.zeros_like(naive_mask_data)
@@ -657,8 +716,6 @@ class Subject:
         self.centroid_mask = os.path.join(self.output_dir, PITUITARY_CENTROID_FILE)
         nib.save(centroid_img, self.centroid_mask)
 
-        print(f"Initial centroid: {centroid}")
-
         # Calculate clustering scores
         scores = calculate_clustering_scores(
             coords, intensities, centroid, intensity_range, naive_mask, t1_data.shape
@@ -667,26 +724,18 @@ class Subject:
         # Create initial mask based on scores
         selected_voxels = scores >= min_score_threshold
 
-        if np.sum(selected_voxels) > 0:
-            # Fit a GMM with 1 component (assume the gland region follows a Gaussian distribution)
-            gmm = GaussianMixture(
-                n_components=1, covariance_type="full", random_state=42
+        # Use KMeans for selecting the most relevant voxels
+        if np.sum(selected_voxels) > 0 and cluster:
+            clustering = KMeans(n_clusters=1, n_init=10, random_state=42).fit(
+                coords[selected_voxels]
             )
-            gmm.fit(coords[selected_voxels])
 
-            # Get the predicted probability of each voxel belonging to the gland region
-            probabilities = gmm.predict_proba(coords[selected_voxels])[
-                :, 0
-            ]  # Probabilities for the component
+            centroid = clustering.cluster_centers_[0]  # Updated centroid
+            distances = np.linalg.norm(coords[selected_voxels] - centroid, axis=1)
 
-            # Print all unique probabilities
-            print(f"Unique probabilities: {np.unique(probabilities)}")
-
-            # Define a probability threshold to retain high-confidence voxels
-            prob_threshold = cluster_prob_threshold  # Adjust as needed
-            # Print how many would be thresholded
-            print(f"Thresholding {np.sum(probabilities < prob_threshold)} voxels")
-            selected_voxels[selected_voxels] = probabilities >= prob_threshold
+            # Define a cutoff threshold (e.g., 90th percentile of distances to filter out outliers)
+            cutoff_distance = np.percentile(distances, cluster_dist_threshold * 100)
+            selected_voxels[selected_voxels] = distances <= cutoff_distance
 
         # Create final binary mask
         final_mask = np.zeros_like(naive_mask_data)
@@ -701,23 +750,194 @@ class Subject:
             new_img = nib.Nifti1Image(final_mask, mask_img.affine, mask_img.header)
             nib.save(new_img, self.pituitary_mask)
 
+        print(f"Dynamic pituitary mask created with {np.sum(selected_voxels)} voxels")
+
+        # Create a scores visualization volume
+        scores_volume = np.zeros_like(naive_mask_data)
+        scores_volume[coords[:, 0], coords[:, 1], coords[:, 2]] = scores
+
+        # Save scores as a NIfTI file for visualization
+        scores_img = nib.Nifti1Image(scores_volume, mask_img.affine, mask_img.header)
+        scores_path = os.path.join(self.output_dir, "pituitary_scores.nii.gz")
+        nib.save(scores_img, scores_path)
+
+        # Show the original visualization with an additional scores view
         show_mri_slices(
             [
                 self.final_t1_mni,
                 self.pituitary_mask,
                 self.centroid_mask,
+                scores_path,
             ],
             slice_index=self.slice_indices,
-            titles=["Dynamic Mask Overlayed on T1w MNI"],
+            titles=["T1w MNI with mask and scores"],
             overlay=True,
             colormaps=[
                 "gray",  # T1 image in grayscale
-                "hot",  # Mask in hot colors
+                "hot",  # Binary mask in hot colors
                 "hot",  # Centroid in hot colors
+                "viridis",  # Scores in viridis colormap
             ],
         )
 
         return coords[selected_voxels], final_mask
+
+    def __create_probabilistic_pituitary_mask(
+        self,
+        mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
+            (x_range[0], y_range[0], z_range[0]),
+            (x_range[1], y_range[1], z_range[1]),
+        ),
+        dynamic_centroid: bool = False,
+    ) -> np.ndarray:
+        """
+        Create a probabilistic pituitary mask using both dynamic masking and region growing methods.
+
+        Parameters:
+        mni_coords: Tuple of boundary coordinates in MNI space
+        dynamic_centroid: Whether to use dynamic centroid calculation
+
+        Returns:
+        np.ndarray: Probabilistic mask where values represent confidence (0-1)
+        """
+        print("Creating probabilistic pituitary mask using combined methods...")
+
+        # Get the dynamic mask scores
+        _, dynamic_mask = self.__create_dynamic_pituitary_mask(
+            update_mask=False, mni_coords=mni_coords, dynamic_centroid=dynamic_centroid
+        )
+
+        # Get the region growing mask
+        t1_img = nib.load(self.final_t1_mni)
+        t1_data = t1_img.get_fdata()
+
+        # Get centroid in voxel space
+        mni_coords_pituitary = np.array([0, 2, -32, 1])
+        voxel_coords = np.dot(np.linalg.inv(t1_img.affine), mni_coords_pituitary)[:3]
+        centroid = np.round(voxel_coords).astype(int)
+
+        region_mask = self.__region_growing(t1_data, tuple(centroid))
+
+        # Create probabilistic mask
+        prob_mask = np.zeros_like(dynamic_mask, dtype=float)
+
+        # Assign probabilities based on voting
+        prob_mask[dynamic_mask > 0] += 0.5  # 50% confidence from dynamic method
+        prob_mask[region_mask > 0] += 0.5  # 50% confidence from region growing
+
+        # Save probabilistic mask
+        prob_mask_img = nib.Nifti1Image(prob_mask, t1_img.affine)
+        self.pituitary_mask = os.path.join(
+            self.output_dir, "prob_" + PITUITARY_MASK_FILE
+        )
+        nib.save(prob_mask_img, self.pituitary_mask)
+
+        # Visualize results
+        show_mri_slices(
+            [self.final_t1_mni, self.pituitary_mask],
+            slice_index=self.slice_indices,
+            titles=["T1w MNI with Probabilistic Mask"],
+            overlay=True,
+            colormaps=["gray", "viridis"],  # T1 image  # Probability map
+        )
+
+        print(f"Created probabilistic mask with values:")
+        print(f"- Both methods agree: {np.sum(prob_mask > 0.9)} voxels")
+        print(
+            f"- Single method only: {np.sum((prob_mask > 0.4) & (prob_mask < 0.6))} voxels"
+        )
+
+        return prob_mask
+
+    def __region_growing(self, image, seed, intensity_tol=150, max_voxels=1000):
+        """
+        Perform region growing segmentation from the given seed point.
+
+        :param image: 3D NumPy array of the T1 MRI
+        :param seed: Tuple (x, y, z) representing the centroid
+        :param intensity_tol: Allowed intensity variation for region growing
+        :param max_voxels: Upper limit for segmented region size (to prevent overgrowth)
+        :return: Binary mask of the segmented region
+        """
+        x, y, z = seed
+        seed_intensity = image[x, y, z]
+
+        mask = np.zeros_like(image, dtype=np.uint8)
+        mask[x, y, z] = 1  # Mark seed point as segmented
+
+        queue = [(x, y, z)]
+        count = 1
+
+        while queue and count < max_voxels:
+            cx, cy, cz = queue.pop(0)
+
+            # Check 6-connected neighbors
+            for dx, dy, dz in [
+                (-1, 0, 0),
+                (1, 0, 0),
+                (0, -1, 0),
+                (0, 1, 0),
+                (0, 0, -1),
+                (0, 0, 1),
+            ]:
+                nx, ny, nz = cx + dx, cy + dy, cz + dz
+
+                if (
+                    0 <= nx < image.shape[0]
+                    and 0 <= ny < image.shape[1]
+                    and 0 <= nz < image.shape[2]
+                    and mask[nx, ny, nz] == 0
+                    and abs(image[nx, ny, nz] - seed_intensity) < intensity_tol
+                ):
+
+                    mask[nx, ny, nz] = 1
+                    queue.append((nx, ny, nz))
+                    count += 1
+
+        return mask
+
+    def __alternative_pituitary_segmentation(self):
+        """
+        Alternative method for segmenting the pituitary gland using region growing.
+        """
+        if not self.final_t1_mni:
+            raise ValueError(
+                "Error: MRI not registered to MNI space. Run coregister_to_mni first."
+            )
+
+        # Load MRI data
+        t1_img = nib.load(self.final_t1_mni)
+        t1_data = t1_img.get_fdata()
+
+        mask_img = nib.load(self.pituitary_mask)
+
+        # Load previously determined pituitary centroid (in voxel space)
+        mni_coords_pituitary = np.array(
+            [0, 2, -32, 1]
+        )  # Adding 1 for homogeneous coordinates
+        # Get voxel coordinates using the inverse affine transformation
+        voxel_coords = np.dot(np.linalg.inv(mask_img.affine), mni_coords_pituitary)[:3]
+        centroid = np.round(voxel_coords).astype(int)
+        print(f"Using hard-coded centroid: {centroid} in voxel space")
+
+        # Perform region growing segmentation
+        mask = self.__region_growing(t1_data, tuple(centroid))
+
+        # Save mask as NIfTI file
+        output_nifti = nib.Nifti1Image(mask.astype(np.uint8), t1_img.affine)
+        self.pituitary_mask = os.path.join(self.output_dir, f"rg_{PITUITARY_MASK_FILE}")
+        nib.save(output_nifti, self.pituitary_mask)
+
+        # Show the segmented region
+        show_mri_slices(
+            [self.final_t1_mni, self.pituitary_mask],
+            slice_index=self.slice_indices,
+            titles=["T1w MNI with Segmented Pituitary"],
+            overlay=True,
+            colormaps=["gray", "hot"],
+        )
+
+        print("Alternative region-growing segmentation saved as", self.pituitary_mask)
 
     def __get_pituitary_statistics(self) -> dict:
         """
@@ -726,6 +946,8 @@ class Subject:
         Returns:
         dict: Dictionary containing various statistics about the pituitary region
         """
+        print("Calculating pituitary statistics...")
+
         if not self.pituitary_mask or not os.path.exists(self.pituitary_mask):
             raise ValueError(
                 "Pituitary mask not found. Run __create_naive_pituitary_mask first."
@@ -764,6 +986,8 @@ class Subject:
             "std_intensity": np.std(mask_intensities),
         }
 
+        print("Completed pituitary statistics calculation:")
+
     def __create_output_directory(self):
         """
         Create output directory structure.
@@ -780,7 +1004,7 @@ class Subject:
         """
         Performs brain extraction using FSL's BET tool and extracts the brain including the pituitary.
         """
-        print("Step 1: Brain extraction using BET (FSL)...")
+        print("Extracting the brain using BET (FSL)...")
 
         # Step 1: Brain Extraction using BET (Removes non-brain tissues like the skull)
         t1w_brain = os.path.join(self.output_dir, T1_BRAIN_FILE)
@@ -823,7 +1047,7 @@ class Subject:
         """
         Perform motion correction and smoothing using FEAT.
         """
-        print("Step 2: Motion Correction & Smoothing using FEAT...")
+        print("Correcting for motion artifact & smoothing using FEAT...")
 
         self.motion_corrected_t1w = os.path.join(self.output_dir, T1_MC_FILE)
         self.motion_corrected_t2w = os.path.join(self.output_dir, T2_MC_FILE)
@@ -878,7 +1102,7 @@ class Subject:
         """
         Perform registration and normalization using FLIRT and FNIRT.
         """
-        print("Step 3: Registration & Normalization using FLIRT...")
+        print("Completing registration & normalization using FLIRT...")
 
         # Paths
         self.registered_t1w = os.path.join(self.output_dir, T1_SMOOTH_REGISTERED_FILE)
@@ -918,7 +1142,7 @@ class Subject:
             check=True,
         )
 
-        print("Affine Normalization Completed.")
+        print("Affine Normalization Completed. T1 MRI in T2 Space.")
 
         # Display results
         show_mri_slices(

@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.11"
 nibabel = "^5.3.2"
 fslpy = "^3.21.1"
 pandas = "^2.2.3"
