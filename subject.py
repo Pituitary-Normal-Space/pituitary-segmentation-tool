@@ -10,9 +10,8 @@ from typing import Literal, Tuple, Dict
 # Non-standard libs
 import numpy as np
 import nibabel as nib
-from scipy.ndimage import label
-
-# sfrom sklearn.mixture import GaussianMixture
+from scipy.ndimage import label, convolve
+from skimage.morphology import ball, binary_closing
 from sklearn.cluster import KMeans
 
 
@@ -36,6 +35,8 @@ from config import (
     naive_mask_weight,
     min_score_threshold,
     cluster_dist_threshold,
+    intensity_tolerance,
+    max_voxels,
 )
 from const import (
     T1_BRAIN_FILE,
@@ -398,7 +399,7 @@ class Subject:
         cluster=False,
     ) -> Dict[str, float]:
         """
-        Creates a probabilistic pituitary mask using both methods and calculates statistics.
+        Creates a probabilistic pituitary mask using both methods, refines it, and calculates statistics.
 
         :param mni_coords: A tuple containing two MNI coordinate bounds to define the search region.
         :param cluster: Whether to use clustering to refine the pituitary mask
@@ -408,12 +409,25 @@ class Subject:
         self.__create_naive_pituitary_mask(mni_coords)
         prob_mask = self.__create_probabilistic_pituitary_mask(mni_coords)
 
-        # Convert probabilistic mask to binary for statistics using 0.5 threshold
+        # Remove appendages before converting to binary
+        print("Refining mask by removing appendages...")
+        t1_img = nib.load(self.final_t1_mni)
+        refined_mask = self.__remove_appendages(prob_mask, t1_img.affine)
+
+        # Convert refined mask to binary for statistics using 0.5 threshold
         binary_mask_img = nib.Nifti1Image(
-            (prob_mask > 0.5).astype(np.uint8), nib.load(self.final_t1_mni).affine
+            (refined_mask > 0.5).astype(np.uint8), t1_img.affine
         )
         self.pituitary_mask = os.path.join(self.output_dir, PITUITARY_MASK_FILE)
         nib.save(binary_mask_img, self.pituitary_mask)
+
+        # Show the final refined mask overlayed on the T1 image
+        show_mri_slices(
+            [self.final_t1_mni, self.pituitary_mask],
+            slice_index=self.slice_indices,
+            titles=["T1 MRI with Refined Pituitary Mask Overlay"],
+            overlay=True,
+        )
 
         self.__get_pituitary_statistics()
         return self.final_mask_stats
@@ -822,8 +836,25 @@ class Subject:
         prob_mask = np.zeros_like(dynamic_mask, dtype=float)
 
         # Assign probabilities based on voting
-        prob_mask[dynamic_mask > 0] += 0.5  # 50% confidence from dynamic method
-        prob_mask[region_mask > 0] += 0.5  # 50% confidence from region growing
+        prob_mask[dynamic_mask > 0] += 0.3  # 70% confidence from dynamic method
+        prob_mask[region_mask > 0] += 0.7  # 70% confidence from region growing
+
+        # For any voxels surrounded by voxels from both methods, increase confidence, max to 1.0
+        prob_mask[(dynamic_mask > 0) & (region_mask > 0)] = np.minimum(
+            1.0, prob_mask[(dynamic_mask > 0) & (region_mask > 0)] + 0.1
+        )
+        # Fill in voxels surrounded by high-probability neighbors
+        structure = np.ones((3, 3, 3))  # 26-connectivity neighborhood
+        for _ in range(2):  # Do this twice to ensure good coverage
+            # Find voxels with high probability neighbors
+            neighbor_sum = convolve(
+                (prob_mask > 0.7).astype(float),  # Look at very high probability voxels
+                structure,
+                mode="constant",
+            )
+            # If a voxel has 20+ high probability neighbors (out of 26 possible), make it high probability
+            high_neighbor_mask = (neighbor_sum > 20) & (prob_mask > 0)
+            prob_mask[high_neighbor_mask] = 1.0
 
         # Save probabilistic mask
         prob_mask_img = nib.Nifti1Image(prob_mask, t1_img.affine)
@@ -841,15 +872,71 @@ class Subject:
             colormaps=["gray", "viridis"],  # T1 image  # Probability map
         )
 
-        print(f"Created probabilistic mask with values:")
-        print(f"- Both methods agree: {np.sum(prob_mask > 0.9)} voxels")
-        print(
-            f"- Single method only: {np.sum((prob_mask > 0.4) & (prob_mask < 0.6))} voxels"
-        )
+        print("Created probabilistic mask with values")
 
         return prob_mask
 
-    def __region_growing(self, image, seed, intensity_tol=150, max_voxels=1000):
+    def __remove_appendages(
+        self, prob_mask: np.ndarray, t1_img_affine: np.ndarray, keep_inf_extension=True
+    ):
+        """
+        Removes appendages from the probabilistic pituitary mask while allowing
+        the vertical infundibulum extension.
+
+        Parameters:
+        prob_mask (np.ndarray): The probabilistic mask.
+        t1_img_affine (np.ndarray): Affine transformation of the T1 image.
+        keep_inf_extension (bool): Whether to preserve the vertical infundibulum.
+
+        Returns:
+        np.ndarray: The cleaned mask.
+        """
+        print("Removing appendages...")
+
+        # Threshold mask (convert to binary)
+        bin_mask = prob_mask > 0.3  # Keeping high-confidence voxels
+
+        # Label connected components
+        labeled_mask, num_features = label(bin_mask)
+
+        # Compute sizes of components
+        component_sizes = np.bincount(labeled_mask.ravel())
+        component_sizes[0] = 0  # Ignore background (label 0)
+
+        # Keep the largest connected component (assumed to be the main pituitary gland)
+        largest_component = np.argmax(component_sizes)
+
+        # Create cleaned mask
+        cleaned_mask = np.zeros_like(prob_mask)
+        cleaned_mask[labeled_mask == largest_component] = prob_mask[
+            labeled_mask == largest_component
+        ]
+
+        if keep_inf_extension:
+            # Convert MNI [0, 0, -20] (infundibulum region) to voxel space
+            mni_inf_position = np.array([0, 0, -20, 1])  # Adjust z if needed
+            voxel_inf_position = np.dot(np.linalg.inv(t1_img_affine), mni_inf_position)[
+                :3
+            ]
+            voxel_inf_position = np.round(voxel_inf_position).astype(int)
+
+            # Find the component that extends upward near MNI x ≈ 0
+            for i in range(1, num_features + 1):
+                coords = np.argwhere(labeled_mask == i)
+                if np.any(
+                    np.abs(coords[:, 0] - voxel_inf_position[0]) < 3
+                ):  # Allow small x variation
+                    cleaned_mask[labeled_mask == i] = prob_mask[labeled_mask == i]
+
+        # Apply morphological closing to remove small gaps and smooth boundaries
+        cleaned_mask = binary_closing(cleaned_mask, ball(1)).astype(np.uint8)
+
+        print("Appendages removed. Returning refined mask.")
+        return cleaned_mask
+
+    def __region_growing(
+        self, image, seed, intensity_tol=intensity_tolerance, max_voxels=max_voxels
+    ):
         """
         Perform region growing segmentation from the given seed point.
 

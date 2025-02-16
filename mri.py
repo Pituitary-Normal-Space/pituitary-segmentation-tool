@@ -10,6 +10,9 @@ import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt
 
+# Internal imports
+from config import show_images
+
 
 def show_mri_slices(
     mri_paths: List[str],
@@ -31,6 +34,8 @@ def show_mri_slices(
 
     :return: None
     """
+    if not show_images:
+        return
     if titles is not None and len(titles) != len(mri_paths) and not overlay:
         raise ValueError(
             "The number of titles must match the number of MRI images provided."

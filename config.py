@@ -1,6 +1,10 @@
 # Description: Configuration file for the project.
 # Allows you to manipulate the parameters of the preprocessing pipeline and NL space development without changing the main code.
 
+# If you want to see images for every step of the pipeline, set this to True.
+# It will stop and wait for you to close the image to continue.
+show_images = True
+
 ####################################################
 # Pituitary masking parameters
 ####################################################
@@ -28,21 +32,21 @@ intensity_range = (
 #   - Connectivity with the centroid
 #   - Being a part of the naive mask
 # Must add up to 1.
-distance_weight = 0.45
-intensity_range_weight = 0.5
-connectivity_weight = 0.05
+distance_weight = 0.3
+intensity_range_weight = 0.6
+connectivity_weight = 0.1
 naive_mask_weight = 0.0
 # This is the minimum score threshold for a voxel to be a candidate for clustering as part of the pituitary gland.
-min_score_threshold = 0.75  # Range 0-1
+min_score_threshold = 0.775  # Range 0-1
 # This is the probability cut off to consider a voxel as part of the pituitary gland after clustering assigns probabilities to each voxel.
 cluster_dist_threshold = 0.75  # Range 0-1
 #
 # Dynamic Masking Parameters - Region Growing-based
 #
 # This is the allowed intensity variation for region growing
-intensity_tolerance = 0.1  # Range 0-1
+intensity_tolerance = 150  # Variation in intensity allowed for region growing
 # Maximum number of voxels to consider for region growing
-max_voxels = 7000
+max_voxels = 850
 
 ####################################################
 # Preprocessing parameters
