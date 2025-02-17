@@ -594,7 +594,7 @@ class Subject:
         dynamic_centroid: bool = False,
         default_centroid: Tuple[int, int, int] = (0, 2, -32),
         cluster=False,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> np.ndarray:
         """
         Detect and segment the pituitary gland using intensity thresholds and giving preference to
         the naive mask region while considering all voxels within specified MNI coordinates.
@@ -606,7 +606,7 @@ class Subject:
         default_centroid (tuple): Default centroid to use if dynamic centroid is False
 
         Returns:
-        tuple: (coordinates of selected voxels, final binary mask)
+        np.ndarray: The probabilistic pituitary mask
         """
         print("Creating dynamic pituitary mask...")
 
@@ -778,36 +778,25 @@ class Subject:
             coords, intensities, centroid, intensity_range, naive_mask, t1_data.shape
         )
 
-        # Create initial mask based on scores
-        selected_voxels = scores >= min_score_threshold
+        # Instead of creating a binary mask, create a probabilistic one using the scores
+        prob_mask = np.zeros_like(naive_mask_data)
+        prob_mask[coords[:, 0], coords[:, 1], coords[:, 2]] = scores
 
-        # Use KMeans for selecting the most relevant voxels
-        if np.sum(selected_voxels) > 0 and cluster:
+        # Apply threshold but keep probabilities
+        prob_mask[prob_mask < min_score_threshold] = 0
+
+        if np.sum(prob_mask > 0) > 0 and cluster:
             clustering = KMeans(n_clusters=1, n_init=10, random_state=42).fit(
-                coords[selected_voxels]
+                coords[prob_mask > 0]
             )
+            centroid = clustering.cluster_centers_[0]
+            distances = np.linalg.norm(coords - centroid, axis=1)
+            cutoff_distance = np.percentile(
+                distances[prob_mask > 0], cluster_dist_threshold * 100
+            )
+            prob_mask[distances > cutoff_distance] = 0
 
-            centroid = clustering.cluster_centers_[0]  # Updated centroid
-            distances = np.linalg.norm(coords[selected_voxels] - centroid, axis=1)
-
-            # Define a cutoff threshold (e.g., 90th percentile of distances to filter out outliers)
-            cutoff_distance = np.percentile(distances, cluster_dist_threshold * 100)
-            selected_voxels[selected_voxels] = distances <= cutoff_distance
-
-        # Create final binary mask
-        final_mask = np.zeros_like(naive_mask_data)
-        final_mask[
-            coords[selected_voxels, 0],
-            coords[selected_voxels, 1],
-            coords[selected_voxels, 2],
-        ] = 1
-
-        # Save updated mask if requested
-        if update_mask:
-            new_img = nib.Nifti1Image(final_mask, mask_img.affine, mask_img.header)
-            nib.save(new_img, self.pituitary_mask)
-
-        print(f"Dynamic pituitary mask created with {np.sum(selected_voxels)} voxels")
+        print(f"Dynamic pituitary mask created with {np.sum(prob_mask)} voxels")
 
         # Create a scores visualization volume
         scores_volume = np.zeros_like(naive_mask_data)
@@ -837,7 +826,8 @@ class Subject:
             ],
         )
 
-        return coords[selected_voxels], final_mask
+        # Return selected coordinates and their probabilities instead of binary mask
+        return prob_mask
 
     def __create_probabilistic_pituitary_mask(
         self,
@@ -862,12 +852,15 @@ class Subject:
         print("Creating probabilistic pituitary mask using combined methods...")
 
         # Get the dynamic mask scores
-        selected_voxels, dynamic_mask = self.__create_dynamic_pituitary_mask(
+        dynamic_probs = self.__create_dynamic_pituitary_mask(
             update_mask=False,
             mni_coords=mni_coords,
             dynamic_centroid=dynamic_centroid,
             default_centroid=default_centroid,
         )
+
+        # Create probabilistic mask
+        prob_mask = np.zeros_like(dynamic_probs)
 
         # Get the region growing mask
         t1_img = nib.load(self.final_t1_mni)
@@ -880,33 +873,43 @@ class Subject:
         voxel_coords = np.dot(np.linalg.inv(t1_img.affine), mni_coords_pituitary)[:3]
         centroid = np.round(voxel_coords).astype(int)
 
+        if (
+            t1_data[tuple(centroid)] < intensity_range[0]
+            or t1_data[tuple(centroid)] > intensity_range[1]
+        ):
+            # Use only dynamic probabilities if centroid is invalid
+            prob_mask = dynamic_probs
+        else:
+            # Get region growing mask
+            region_mask = self.__region_growing(t1_data, tuple(centroid))
+
+            # Combine probabilities (0.6 weight for dynamic, 0.4 for region growing)
+            prob_mask = 0.6 * dynamic_probs
+            prob_mask[region_mask > 0] += 0.4
+
+        # Cap probabilities at 1.0
+        prob_mask = np.minimum(prob_mask, 1.0)
+
         # Check if the centroid is within the intensity range. If not then use the centroid of the dynamic mask
         if (
             t1_data[tuple(centroid)] < intensity_range[0]
             or t1_data[tuple(centroid)] > intensity_range[1]
         ):
-            # Use selected voxels and weigh in the weights
-            centroid = np.average(selected_voxels, axis=0)
-            # Convert to MNI space
-            centroid = np.round(
-                np.dot(t1_img.affine, np.array([*centroid, 1]))[:3]
-            ).astype(int)
             print(
-                f"WARNING: Using dynamic centroid: {centroid} in voxel space because the centroid was not in the intensity range"
+                f"WARNING: Centroid {centroid} was not in the intensity range skipping region growing"
             )
-        region_mask = self.__region_growing(t1_data, tuple(centroid))
+            region_mask = np.zeros_like(dynamic_probs)
+            # Assign probabilities based on voting
+            prob_mask[dynamic_probs > 0] *= 1  # 100% confidence from dynamic method
 
-        # Create probabilistic mask
-        prob_mask = np.zeros_like(dynamic_mask, dtype=float)
+        else:
 
-        # Assign probabilities based on voting
-        prob_mask[dynamic_mask > 0] += 0.6  # 70% confidence from dynamic method
-        prob_mask[region_mask > 0] += 0.4  # 70% confidence from region growing
+            region_mask = self.__region_growing(t1_data, tuple(centroid))
 
-        # For any voxels surrounded by voxels from both methods, increase confidence, max to 1.0
-        prob_mask[(dynamic_mask > 0) & (region_mask > 0)] = np.minimum(
-            1.0, prob_mask[(dynamic_mask > 0) & (region_mask > 0)] + 0.1
-        )
+            # Assign probabilities based on voting
+            prob_mask[dynamic_probs > 0] *= 0.6  # 70% confidence from dynamic method
+            prob_mask[region_mask > 0] += 0.4  # 40% confidence from region growing
+
         # Fill in voxels surrounded by high-probability neighbors
         structure = np.ones((3, 3, 3))  # 26-connectivity neighborhood
         for _ in range(2):  # Do this twice to ensure good coverage
@@ -917,8 +920,10 @@ class Subject:
                 mode="constant",
             )
             # If a voxel has 20+ high probability neighbors (out of 26 possible), make it high probability
-            high_neighbor_mask = (neighbor_sum > 20) & (prob_mask > 0)
-            prob_mask[high_neighbor_mask] = 1.0
+            high_neighbor_mask = (
+                (neighbor_sum > 22) & (prob_mask < 0.8) & (prob_mask > 0.1)
+            )
+            prob_mask[high_neighbor_mask] = 0.8
 
         # Save probabilistic mask
         prob_mask_img = nib.Nifti1Image(prob_mask, t1_img.affine)
@@ -1046,49 +1051,6 @@ class Subject:
                     count += 1
 
         return mask
-
-    # def __alternative_pituitary_segmentation(self):
-    #     """
-    #     Alternative method for segmenting the pituitary gland using region growing.
-    #     """
-    #     if not self.final_t1_mni:
-    #         raise ValueError(
-    #             "Error: MRI not registered to MNI space. Run coregister_to_mni first."
-    #         )
-
-    #     # Load MRI data
-    #     t1_img = nib.load(self.final_t1_mni)
-    #     t1_data = t1_img.get_fdata()
-
-    #     mask_img = nib.load(self.pituitary_mask)
-
-    #     # Load previously determined pituitary centroid (in voxel space)
-    #     mni_coords_pituitary = np.array(
-    #         [default_centroid[0], default_centroid[1], default_centroid[2], 1]
-    #     )  # Adding 1 for homogeneous coordinates
-    #     # Get voxel coordinates using the inverse affine transformation
-    #     voxel_coords = np.dot(np.linalg.inv(mask_img.affine), mni_coords_pituitary)[:3]
-    #     centroid = np.round(voxel_coords).astype(int)
-    #     print(f"Using hard-coded centroid: {centroid} in voxel space")
-
-    #     # Perform region growing segmentation
-    #     mask = self.__region_growing(t1_data, tuple(centroid))
-
-    #     # Save mask as NIfTI file
-    #     output_nifti = nib.Nifti1Image(mask.astype(np.uint8), t1_img.affine)
-    #     self.pituitary_mask = os.path.join(self.output_dir, f"rg_{PITUITARY_MASK_FILE}")
-    #     nib.save(output_nifti, self.pituitary_mask)
-
-    #     # Show the segmented region
-    #     show_mri_slices(
-    #         [self.final_t1_mni, self.pituitary_mask],
-    #         slice_index=self.slice_indices,
-    #         titles=["T1w MNI with Segmented Pituitary"],
-    #         overlay=True,
-    #         colormaps=["gray", "hot"],
-    #     )
-
-    #     print("Alternative region-growing segmentation saved as", self.pituitary_mask)
 
     def __get_pituitary_statistics(self) -> dict:
         """

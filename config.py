@@ -15,12 +15,12 @@ show_images = True
 # These are values of MNI space coordinates.
 x_range = (-10, 12)  # Width of 24
 y_range = (-3, 9)  # Height of 12
-z_range = (-39, -27)  # Depth of 12
+z_range = (-41, -27)  # Depth of 14
 # This is the range of intensities that are considered to be part of the pituitary gland.
 # This is used to create a mask of the pituitary gland.
 intensity_range = (
     300,
-    700,
+    800,
 )  # Will need to normalize intensity first and then play around with this.
 #
 # Dynamic Masking Parameters - Clustering-based
