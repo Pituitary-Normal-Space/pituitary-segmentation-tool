@@ -46,6 +46,7 @@ from config import (
     infundibulum_range,
     appendage_removal_radius,
     final_score_threshold,
+    do_appendage_removal,
 )
 from const import (
     # T1_BRAIN_FILE,
@@ -366,6 +367,9 @@ class Subject:
         if final_score_threshold < 0 or final_score_threshold > 1:
             raise ValueError("Final score threshold must be between 0 and 1")
 
+        if type(do_appendage_removal) is not bool:
+            raise ValueError("Do appendage removal must be a boolean")
+
     def __str__(self) -> str:
         """
         String representation of the subject object.
@@ -480,7 +484,7 @@ class Subject:
         self.overlayed_t1_and_t2 = os.path.join(self.output_dir, OVERLAY_FILE)
 
         # Ensure the preprocessed images exist before overlaying
-        if not os.path.exists(self.t1w_smooth_reg_t2) or not os.path.exists(
+        if not os.path.exists(self.t1w_preproc_reg_t2) or not os.path.exists(
             self.motion_corrected_t2w
         ):
             raise FileNotFoundError(
@@ -652,7 +656,7 @@ class Subject:
         self.moved_to_mni_norm_space = True
 
         if delete_temp_files:
-            self.__delete_temp_files("coregistered")
+            self.__delete_temp_files("in_mni")
 
     def segment_pituitary_gland(
         self,
@@ -660,12 +664,13 @@ class Subject:
             (x_range[0], y_range[0], z_range[0]),
             (x_range[1], y_range[1], z_range[1]),
         ),
-        appendage_removal=True,
+        appendage_removal=do_appendage_removal,
     ) -> None:
         """
         Creates a probabilistic pituitary mask using both methods, refines it, and calculates statistics.
 
         :param mni_coords: A tuple containing two MNI coordinate bounds to define the search region.
+        :param appendage_removal: A boolean to remove appendages from the mask.
 
         :return: None. Saves the final pituitary mask in the output directory. Statistics are stored in final_mask_stats.
         """
@@ -1716,11 +1721,40 @@ class Subject:
             )
 
         # All steps will have these file no longer needed
-        os.remove(self.smoothed_and_mc_t1w)
-        os.remove(self.smoothed_and_mc_t2w)
-        os.remove(self.t1w_smooth_reg_t2)
+        (
+            os.remove(self.smoothed_and_mc_t1w)
+            if os.path.exists(self.smoothed_and_mc_t1w)
+            else None
+        )
+        (
+            os.remove(self.smoothed_and_mc_t2w)
+            if os.path.exists(self.smoothed_and_mc_t2w)
+            else None
+        )
 
         if step_completed == "in_mni":
-            os.remove(self.t1w_preproc_reg_t2)
-            os.remove(self.motion_corrected_t1w)
-            os.remove(self.affine_matrix)
+            (
+                os.remove(self.t1w_smooth_reg_t2)
+                if os.path.exists(self.t1w_smooth_reg_t2)
+                else None
+            )
+            (
+                os.remove(self.t1w_preproc_reg_t2)
+                if os.path.exists(self.t1w_preproc_reg_t2)
+                else None
+            )
+            (
+                os.remove(self.motion_corrected_t1w)
+                if os.path.exists(self.motion_corrected_t1w)
+                else None
+            )
+            (
+                os.remove(self.motion_corrected_t2w)
+                if os.path.exists(self.motion_corrected_t2w)
+                else None
+            )
+            (
+                os.remove(self.affine_matrix)
+                if os.path.exists(self.affine_matrix)
+                else None
+            )

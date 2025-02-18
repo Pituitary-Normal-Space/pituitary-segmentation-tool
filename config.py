@@ -3,7 +3,7 @@
 
 # If you want to see images for every step of the pipeline, set this to True.
 # It will stop and wait for you to close the image to continue.
-show_images = True
+show_images = False
 # Delete the temporary files created during the pipeline.
 delete_temp_files = True
 
@@ -22,7 +22,7 @@ default_centroid = (
 # This range of values is the X, Y, and Z coordinates of the pituitary gland in the MRI image.
 # These are values of MNI space coordinates.
 x_range = (-10, 12)  # Width of 24
-y_range = (-3, 9)  # Height of 12
+y_range = (-3, 10)  # Height of 12
 z_range = (-41, -27)  # Depth of 14
 # This is the range of intensities that are considered to be part of the pituitary gland.
 # This is used to create a mask of the pituitary gland.
@@ -33,6 +33,7 @@ intensity_range = (
 #
 # Maximum drift ROI/centroid can move in 1 direction before terminating the ideal centroid/ROI search.
 max_voxel_drift = 2
+#
 # Dynamic Masking Parameters - Score-based
 #
 # This includes weights for various scores that are used to determine the pituitary gland.
@@ -41,9 +42,9 @@ max_voxel_drift = 2
 #   - The distance from naive centroid
 #   - Connectivity with the centroid
 # Must add up to 1.
-distance_weight = 0.5
+distance_weight = 0.4
 intensity_range_weight = 0.4
-connectivity_weight = 0.1
+connectivity_weight = 0.2
 # This is the number of high scoring neighbors (above min threshold when only considering distance and intensity) that a voxel must have to be considered connected to the centroid.
 high_quality_neighbors_to_consider_connected = 5
 # This is the minimum score threshold for a voxel to be a candidate for clustering as part of the pituitary gland.
@@ -74,6 +75,8 @@ min_score_considered_high_score = 0.75  # Range 0-1
 #
 # Appendage Removal Parameters
 #
+# Whether to do appendage removal or not
+do_appendage_removal = True
 # This is the maximum score that a voxel can have to be considered an appendage.
 max_score_for_appendage = 0.5  # Range 0-1
 # Voxels to be considered near the infundibulum area (0, 0, z_range's max)

@@ -17,11 +17,11 @@ def main() -> None:
         pd.read_csv(f"{PATH_TO_UNPROCESSED_DATA}/{KEY_MAP_NAME}")
     )
     for subject in subject_list:
-        subject.setup_pituitary_analysis()
-        # print(subject)
-        # subject.preprocess_MRIs()
+        # subject.setup_pituitary_analysis()
+        print(subject)
+        subject.preprocess_MRIs()
         # subject.overlay_MRIs()
-        # subject.coregister_to_mni_space()
+        subject.coregister_to_mni_space()
         subject.segment_pituitary_gland()
         print(subject)
 
