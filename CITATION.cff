@@ -7,6 +7,6 @@ authors:
     given-names: John
   - family-names: Catalino
     given-names: Michael
-title: "Pituitary Adenoma Segmentation Tool"
+title: "Pituitary Segmentation Tool"
 version: 0.0.1
 date-released: 2025-2-17

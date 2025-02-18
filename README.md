@@ -97,4 +97,8 @@ The steps it follows are outlined below by broad concept.
   - Sample mask via region-growing segmentation
   - <mask>
 - c. _Combine_ the above
-- d. _Appendage removal_: utilizes various methods to smooth mask and remove appendages not believed to be the infundibulum.
+  - Sample mask of combined methods
+  - <mask>
+- d. _Appendage removal_: utilizes various methods to smooth mask and remove appendages not believed to be the infundibulum. Can be done without.
+  - Final mask example
+  - <mask>
