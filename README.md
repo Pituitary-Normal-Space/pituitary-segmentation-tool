@@ -4,7 +4,7 @@ Repository containing code that completes segmentation of the pituitary based on
 
 Currently we support working directly with data from the [100 Unrelated Subjects dataset from the HumanConnectome Project](https://db.humanconnectome.org/app/template/SubjectDashboard.vm?subjectGroupName=100%20Unrelated%20Subjects).
 
-### How To Use It
+### How To Use
 
 Takes a directory containing unprocessed MRIs in the following structure:
 
@@ -70,26 +70,30 @@ Note: You must have [FSL installed](https://fsl.fmrib.ox.ac.uk/fsl/docs/#/instal
 The steps it follows are outlined below by broad concept.
 
 1. Preprocessed the MRIs by completing motion correction, smoothing, and affine transformation of T1 to T2 space
-   Before preprocessing
-   <image showing original>
 
-After preprocessing
-<image showing after preprocessing>
+- Before preprocessing
+
+  - <image showing original>
+
+- After preprocessing
+  - <image showing after preprocessing>
 
 2. Overlay T1 and T2 for visualization purposes (optional)
-   Example
-   <overlayed image>
+
+- Example
+  - <overlayed image>
 
 3. Coregister to MNI
-   Images moved to MNI space
-   <example of images in MNI space>
+
+- Images moved to MNI space
+  - <example of images in MNI space>
 
 4. Pituitary segmentation: creates a ROI around centroid and shifts the centroid iteratively based on the final mask the below methods create.
    a. _Score-based segmentation_: gives each voxel in ROI a score based on distance, intensity, and connectivity with centroid.
-   Sample mask via score-based segmentation
-   <mask>
-   b. _Region-growing segmentation_: starting with the centroid adds X number of voxels to the mask based on similarity with nearest voxels established as part of the mask.
-   Sample mask via region-growing segmentation
-   <mask>
-   c. _Combine_ the above
-   d. _Appendage removal_: utilizes various methods to smooth mask and remove appendages not believed to be the infundibulum.
+   - Sample mask via score-based segmentation
+   - <mask>
+     b. _Region-growing segmentation_: starting with the centroid adds X number of voxels to the mask based on similarity with nearest voxels established as part of the mask.
+   - Sample mask via region-growing segmentation
+   - <mask>
+     c. _Combine_ the above
+     d. _Appendage removal_: utilizes various methods to smooth mask and remove appendages not believed to be the infundibulum.
