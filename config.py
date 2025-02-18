@@ -55,7 +55,7 @@ min_score_threshold = 0.75  # Range 0-1
 # This is the allowed intensity variation for region growing
 intensity_tolerance = 100  # Variation in intensity allowed for region growing
 # Maximum number of voxels to consider for region growing
-max_voxels = 850
+max_voxels = 1375
 #
 # Voting Parameters: How to incorporate region growing and score-based methods
 #
