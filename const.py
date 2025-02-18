@@ -72,3 +72,5 @@ PITUITARY_CENTROID_FILE = "pituitary_centroid.nii.gz"
 PROB_MASK_PREFIX = "prob_"
 # Regio growing mask prefix
 REGION_GROWING_MASK_PREFIX = "region_growing_"
+# Suffix for the final pituitary mask
+PROB_PITUITARY_MASK = "pituitary_mask_scores.nii.gz"

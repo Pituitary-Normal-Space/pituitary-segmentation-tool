@@ -73,6 +73,7 @@ from const import (
     T1_TO_T2_WARP_FILE,
     PROB_MASK_PREFIX,
     REGION_GROWING_MASK_PREFIX,
+    PROB_PITUITARY_MASK,
 )
 from mri import show_mri_slices
 
@@ -577,7 +578,7 @@ class Subject:
             subprocess.run(
                 [
                     "fnirt",
-                    f"--in={affine_to_mni}",
+                    f"--in={self.t1w_smooth_reg_t2}",
                     f"--ref={mni_template_path}",
                     f"--aff={self.affine_matrix}",
                     f"--cout={self.warp_field}",
@@ -734,7 +735,7 @@ class Subject:
                 prob_mask, nib.load(self.t1_in_mni_space).affine
             )
             self.prob_pituitary_mask = os.path.join(
-                self.output_dir, PROB_MASK_PREFIX + "_scores.nii.gz"
+                self.output_dir, PROB_MASK_PREFIX + PROB_PITUITARY_MASK
             )
             nib.save(prob_mask_img, self.prob_pituitary_mask)
             # Show the probabilistic mask overlayed on the T1 image
@@ -756,7 +757,7 @@ class Subject:
                 # Save the refined mask with the compbined probabilities after appendage removal
                 refined_mask_img = nib.Nifti1Image(refined_mask, t1_img.affine)
                 self.prob_pituitary_mask = os.path.join(
-                    self.output_dir, PROB_MASK_PREFIX + "_scores.nii.gz"
+                    self.output_dir, PROB_MASK_PREFIX + PROB_PITUITARY_MASK
                 )
                 nib.save(refined_mask_img, self.prob_pituitary_mask)
 
@@ -1195,7 +1196,7 @@ class Subject:
         # Save scores as a NIfTI file for visualization
         scores_img = nib.Nifti1Image(scores_volume, mask_img.affine, mask_img.header)
         self.score_based_mask_scores = os.path.join(
-            self.output_dir, "pituitary_scores.nii.gz"
+            self.output_dir, PROB_PITUITARY_MASK
         )
         nib.save(scores_img, self.score_based_mask_scores)
 
