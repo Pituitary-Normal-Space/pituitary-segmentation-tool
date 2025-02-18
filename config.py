@@ -4,13 +4,21 @@
 # If you want to see images for every step of the pipeline, set this to True.
 # It will stop and wait for you to close the image to continue.
 show_images = True
+# Delete the temporary files created during the pipeline.
+delete_temp_files = True
 
 ####################################################
-# Pituitary masking parameters
+# Pituitary Segmentation Parameters
 ####################################################
 #
-# Naive Masking Parameters
+# Location and Intensity Parameters
 #
+# The default centroid of the pituitary gland in MNI space. This is where we start our search for each subject.
+default_centroid = (
+    0,
+    2,
+    -32,
+)  # Uses MNI space coordinates. Recommended based off this paper: https://core.ac.uk/download/pdf/288028975.pdf
 # This range of values is the X, Y, and Z coordinates of the pituitary gland in the MRI image.
 # These are values of MNI space coordinates.
 x_range = (-10, 12)  # Width of 24
@@ -23,37 +31,67 @@ intensity_range = (
     800,
 )  # Will need to normalize intensity first and then play around with this.
 #
-# Dynamic Masking Parameters - Clustering-based
+# Maximum drift ROI/centroid can move in 1 direction before terminating the ideal centroid/ROI search.
+max_voxel_drift = 2
+# Dynamic Masking Parameters - Score-based
 #
 # This includes weights for various scores that are used to determine the pituitary gland.
 # These scores are based on:
 #   - Rroximity to the above intensity range
 #   - The distance from naive centroid
 #   - Connectivity with the centroid
-#   - Being a part of the naive mask
 # Must add up to 1.
-distance_weight = 0.4
+distance_weight = 0.5
 intensity_range_weight = 0.4
-connectivity_weight = 0.2
-naive_mask_weight = 0.0
+connectivity_weight = 0.1
+# This is the number of high scoring neighbors (above min threshold when only considering distance and intensity) that a voxel must have to be considered connected to the centroid.
+high_quality_neighbors_to_consider_connected = 5
 # This is the minimum score threshold for a voxel to be a candidate for clustering as part of the pituitary gland.
-min_score_threshold = 0.6  # Range 0-1
-# This is the probability cut off to consider a voxel as part of the pituitary gland after clustering assigns probabilities to each voxel.
-cluster_dist_threshold = 0.75  # Range 0-1
+min_score_threshold = 0.75  # Range 0-1
 #
 # Dynamic Masking Parameters - Region Growing-based
 #
 # This is the allowed intensity variation for region growing
-intensity_tolerance = 150  # Variation in intensity allowed for region growing
+intensity_tolerance = 100  # Variation in intensity allowed for region growing
 # Maximum number of voxels to consider for region growing
 max_voxels = 850
+#
+# Voting Parameters: How to incorporate region growing and score-based methods
+#
+# Weight for region growing method
+region_growing_weight = 0
+# Weight for score-based method
+score_based_weight = 1
+#
+# Boosting voxels with high scoring neighbors
+#
+# This is the number of high scoring neighbors (above min threshold when only considering distance and intensity) that a voxel must have to be considered connected to the centroid.
+num_neighbors_required_to_boost = 18  # Number between 0 and 26
+# This is the minimum score threshold for a voxel to be a candidate for boosting.
+min_score_to_boost_if_quality_neighbors = 0.5  # Range 0-1
+# This is the minimum score for a voxel to be considered a high scoring neighbor.
+min_score_considered_high_score = 0.75  # Range 0-1
+#
+# Appendage Removal Parameters
+#
+# This is the maximum score that a voxel can have to be considered an appendage.
+max_score_for_appendage = 0.5  # Range 0-1
+# Voxels to be considered near the infundibulum area (0, 0, z_range's max)
+infundibulum_range = 3  # Range of voxels to consider near the infundibulum area
+# Radius of the sphere to consider for appendage removal
+appendage_removal_radius = 1  # Radius of sphere to consider for appendage removal
+
+# Final Mask Selction Parameters
+# Threshold to consider a voxel as part of the pituitary gland based on final score
+final_score_threshold = 0.7  # Range 0-1
+
 
 ####################################################
 # Preprocessing parameters
 ####################################################
 #
 ####################################################
-# Brain extraction parameters... not currently in use
+# Brain extraction parameters... NOT CURRENTLY IN USE
 #
 # Fractional intensity threshold (0-1) for BET (0.5 is default).
 fractional_intensity_t1 = 0.075

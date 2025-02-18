@@ -5,6 +5,7 @@ import os
 PATH_TO_UNPROCESSED_DATA = "unprocessed"
 PATH_TO_PROCESSED_DATA = "processed"
 SUFFIX_SUBJECT_ID = "_3T_Structural_unproc"
+SUFFIX_SUBJECT_ID_PROCESSED = "_3T_Structural_proc"
 UNPROCESSED_DATA = os.path.join("unprocessed", "3T")
 T1_DATA = "T1w_MPR1"
 T2_DATA = "T2w_SPC1"
@@ -15,7 +16,7 @@ T2_FILE_NAME_SUFFIX = "_3T_T2w_SPC1.nii.gz"
 KEY_MAP_NAME = "subject_map.csv"
 
 # Path to FSL resources
-MNI_TEMPLATE = "/Users/charbelmarche/fsl/data/standard/MNI152_T1_1mm.nii.gz"  # Must replace with your local path
+MNI_TEMPLATE = "/Users/charbelmarche/fsl/data/standard/MNI152_T1_0.5mm.nii.gz"  # Must replace with your local path
 
 
 # Paths to store processed data
@@ -42,6 +43,8 @@ T1_TO_T2_MAT_FILE = "t1w_to_t2w.mat"
 T1_SMOOTH_REGISTERED_FILE = "T1w_smooth_registered_to_T2w.nii.gz"
 # This is the MC not smoothed T1 MRI image registered to the T2 MRI image
 T1_MC_REGISTERED_FILE = "T1w_registered_to_T2w.nii.gz"
+# This is the warp file for the transformation from T1 to T2 space using FNIRT
+T1_TO_T2_WARP_FILE = "t1_to_t2_warp.nii.gz"
 
 # Overlaying images before MNI registration
 # This is the overlay of the T1 and T2 MRI images
@@ -55,7 +58,7 @@ T1_AFFINE_TO_MNI_FILE = "T1w_affine_to_mni.nii.gz"
 # This file is the non-linearly transofrmed smooth T1 MRI image to MNI space
 T1_SMOOTH_NONLIN_TO_MNI_FILE = "T1w_smoothed_normalized_to_mni.nii.gz"
 # This is the warp file for the transformation from T1 to MNI space using FNIRT
-T1_WARP_FILE = "t1_to_mni_warp.nii.gz"
+T1_TO_MNI_WARP_FILE = "t1_to_mni_warp.nii.gz"
 # These are the MC T1 and T2 MRI images in MNI space
 T1_MNI_FILE = "T1w_motion_corrected_normalized_to_mni.nii.gz"
 T2_MNI_FILE = "T2w_motion_corrected_normalized_to_mni.nii.gz"
@@ -65,3 +68,7 @@ T2_MNI_FILE = "T2w_motion_corrected_normalized_to_mni.nii.gz"
 PITUITARY_MASK_FILE = "pituitary_mask.nii.gz"
 # This is the centroid of the naive pituitary mask in MNI space
 PITUITARY_CENTROID_FILE = "pituitary_centroid.nii.gz"
+# Probabilistic mask prefix
+PROB_MASK_PREFIX = "prob_"
+# Regio growing mask prefix
+REGION_GROWING_MASK_PREFIX = "region_growing_"

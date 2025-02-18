@@ -3,7 +3,7 @@ Non-interactive MRI visualization functions.
 """
 
 # Standard library imports
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict
 
 # Non-standard library imports
 import numpy as np
@@ -20,7 +20,7 @@ def show_mri_slices(
     titles: List[str] = None,
     highlight_threshold: Tuple[int, int] = None,
     overlay: bool = False,
-    colormaps: List[str] = None,  # Add colormaps parameter
+    colormaps: List[str] = None,
 ) -> None:
     """
     Display axial, sagittal, and coronal slices of multiple MRI images side by side or overlaid.
