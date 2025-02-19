@@ -119,4 +119,4 @@ The steps it follows are outlined below by broad concept.
 
   - After appendage removal
 
-  [After appendage removal](.images/post_appendage_removal.png)
+  ![After appendage removal](.images/post_appendage_removal.png)
