@@ -72,11 +72,10 @@ The steps it follows are outlined below by broad concept.
 1. Preprocessed the MRIs by completing motion correction, smoothing, and affine transformation of T1 to T2 space
 
 - Before preprocessing
-
-  - <image showing original>
+  ![Unprocessed MRIs](.images/unprocessed.png)
 
 - After preprocessing
-  - <image showing after preprocessing>
+  ![Processed MRIs](.images/processed.png)
 
 2. Overlay T1 and T2 for visualization purposes (optional)
 
@@ -86,7 +85,7 @@ The steps it follows are outlined below by broad concept.
 3. Coregister to MNI
 
 - Images moved to MNI space
-  - <example of images in MNI space>
+  ![T1 and T2 MRIs in MNI Space](.images/MNI_space.png)
 
 4. Pituitary segmentation: creates a ROI around centroid and shifts the centroid iteratively based on the final mask the below methods create.
 
