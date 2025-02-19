@@ -77,8 +77,6 @@ min_score_considered_high_score = 0.75  # Range 0-1
 #
 # Whether to do appendage removal or not
 do_appendage_removal = True
-# This is the maximum score that a voxel can have to be considered an appendage.
-max_score_for_appendage = 0.5  # Range 0-1
 # Voxels to be considered near the infundibulum area (0, 0, z_range's max)
 infundibulum_range = 3  # Range of voxels to consider near the infundibulum area
 # Radius of the sphere to consider for appendage removal
@@ -86,7 +84,7 @@ appendage_removal_radius = 1  # Radius of sphere to consider for appendage remov
 
 # Final Mask Selction Parameters
 # Threshold to consider a voxel as part of the pituitary gland based on final score
-final_score_threshold = 0.7  # Range 0-1
+final_score_threshold = 0.5  # Range 0-1
 
 
 ####################################################

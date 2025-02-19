@@ -42,7 +42,6 @@ from config import (
     num_neighbors_required_to_boost,
     min_score_considered_high_score,
     min_score_to_boost_if_quality_neighbors,
-    max_score_for_appendage,
     infundibulum_range,
     appendage_removal_radius,
     final_score_threshold,
@@ -340,12 +339,6 @@ class Subject:
             raise ValueError(
                 "Minimum score to boost if quality neighbors must be between 0 and 1"
             )
-
-        if type(max_score_for_appendage) is not float:
-            raise ValueError("Maximum score for appendage must be a float")
-
-        if max_score_for_appendage < 0 or max_score_for_appendage > 1:
-            raise ValueError("Maximum score for appendage must be between 0 and 1")
 
         if type(infundibulum_range) is not int:
             raise ValueError("Infundibulum range must be an integer")
@@ -1341,7 +1334,7 @@ class Subject:
         print("Removing appendages...")
 
         # Threshold mask (convert to binary)
-        bin_mask = prob_mask > max_score_for_appendage  # Keeping high-confidence voxels
+        bin_mask = prob_mask > final_score_threshold  # Keeping high-confidence voxels
 
         # Label connected components
         labeled_mask, num_features = label(bin_mask)
