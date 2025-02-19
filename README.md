@@ -92,7 +92,7 @@ The steps it follows are outlined below by broad concept.
 
 - a. _Score-based segmentation_: gives each voxel in ROI a score based on distance, intensity, and connectivity with centroid.
   - Sample mask via score-based segmentation
-  - <mask>
+    ![Score-based segmentation mask](.images/score_based_segmentation.png)
 - b. _Region-growing segmentation_: starting with the centroid adds X number of voxels to the mask based on similarity with nearest voxels established as part of the mask.
   - Sample mask via region-growing segmentation
   - <mask>
