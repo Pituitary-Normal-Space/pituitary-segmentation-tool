@@ -82,7 +82,8 @@ The steps it follows are outlined below by broad concept.
 2. Overlay T1 and T2 for visualization purposes (optional)
 
 - Example
-  - <overlayed image>
+
+  ![T1 and T2 MRIs Overlated](.images/overlayed.png)
 
 3. Coregister to MNI
 
@@ -99,11 +100,23 @@ The steps it follows are outlined below by broad concept.
     ![Score-based segmentation mask](.images/score_based_segmentation.png)
 
 - b. _Region-growing segmentation_: starting with the centroid adds X number of voxels to the mask based on similarity with nearest voxels established as part of the mask.
+
   - Sample mask via region-growing segmentation
-  - <mask>
+
+  ![Region-growing segmentation mask](.images/region_growing.png)
+
 - c. _Combine_ the above
+
   - Sample mask of combined methods
+
   - <mask>
+
 - d. _Appendage removal_: utilizes various methods to smooth mask and remove appendages not believed to be the infundibulum. Can be done without.
-  - Final mask example
-  - <mask>
+
+  - Before appendage removal
+
+  ![Before appendage removal](.images/before_appendage_removal.png)
+
+  - After appendage removal
+
+  [After appendage removal](.images/post_appendage_removal.png)

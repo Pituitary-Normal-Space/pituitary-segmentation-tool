@@ -101,7 +101,7 @@ class Subject:
         t2_path: str,
     ) -> None:
         # Id and demographic information
-        self.subject_id: str = subject_id
+        self.subject_id: str = str(subject_id)
         self.age: Literal["31-35", "26-30", "22-25"] = age
         self.sex: Literal["M", "F"] = sex
 
@@ -352,8 +352,8 @@ class Subject:
         ):
             raise ValueError("Appendage removal radius must be a float or int")
 
-        if appendage_removal_radius < 0:
-            raise ValueError("Appendage removal radius must be greater than 0")
+        if appendage_removal_radius < 1.0:
+            raise ValueError("Appendage removal radius must be greater than 1")
 
         if type(final_score_threshold) is not float:
             raise ValueError("Final score threshold must be a float")
@@ -1286,6 +1286,22 @@ class Subject:
             print(f"New centroid found: {centroid}")
 
         region_mask = self.__region_growing(t1_data, tuple(centroid))
+
+        # Show the region_mask
+        region_mask_img = nib.Nifti1Image(region_mask, t1_img.affine)
+        self.region_mask = os.path.join(
+            self.output_dir, REGION_GROWING_MASK_PREFIX + PITUITARY_MASK_FILE
+        )
+        nib.save(region_mask_img, self.region_mask)
+
+        # Show the region mask overlayed on the T1 image
+        show_mri_slices(
+            [self.t1_in_mni_space, self.region_mask],
+            slice_index=self.slice_indices,
+            titles=["T1 MRI with Region Growing Mask Overlay"],
+            overlay=True,
+            colormaps=["gray", "viridis"],  # T1 image  # Region mask
+        )
 
         # Assign probabilities based on voting
         # Combine probabilities (0.6 weight for score-based, 0.4 for region growing)

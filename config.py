@@ -3,9 +3,9 @@
 
 # If you want to see images for every step of the pipeline, set this to True.
 # It will stop and wait for you to close the image to continue.
-show_images = False
+show_images = True
 # Delete the temporary files created during the pipeline.
-delete_temp_files = True
+delete_temp_files = False
 
 ####################################################
 # Pituitary Segmentation Parameters
@@ -32,7 +32,7 @@ intensity_range = (
 )  # Will need to normalize intensity first and then play around with this.
 #
 # Maximum drift ROI/centroid can move in 1 direction before terminating the ideal centroid/ROI search.
-max_voxel_drift = 2
+max_voxel_drift = 2  # Number of voxels
 #
 # Dynamic Masking Parameters - Score-based
 #
@@ -42,20 +42,20 @@ max_voxel_drift = 2
 #   - The distance from naive centroid
 #   - Connectivity with the centroid
 # Must add up to 1.
-distance_weight = 0.4
+distance_weight = 0.3
 intensity_range_weight = 0.4
-connectivity_weight = 0.2
+connectivity_weight = 0.3
 # This is the number of high scoring neighbors (above min threshold when only considering distance and intensity) that a voxel must have to be considered connected to the centroid.
 high_quality_neighbors_to_consider_connected = 5
 # This is the minimum score threshold for a voxel to be a candidate for clustering as part of the pituitary gland.
-min_score_threshold = 0.75  # Range 0-1
+min_score_threshold = 0.8  # Range 0-1
 #
 # Dynamic Masking Parameters - Region Growing-based
 #
 # This is the allowed intensity variation for region growing
-intensity_tolerance = 100  # Variation in intensity allowed for region growing
+intensity_tolerance = 225  # Variation in intensity allowed for region growing
 # Maximum number of voxels to consider for region growing
-max_voxels = 1375
+max_voxels = 8000
 #
 # Voting Parameters: How to incorporate region growing and score-based methods
 #
@@ -80,11 +80,13 @@ do_appendage_removal = True
 # Voxels to be considered near the infundibulum area (0, 0, z_range's max)
 infundibulum_range = 3  # Range of voxels to consider near the infundibulum area
 # Radius of the sphere to consider for appendage removal
-appendage_removal_radius = 1  # Radius of sphere to consider for appendage removal
+appendage_removal_radius = (
+    1  # Radius of sphere to consider for appendage removal from 1 - ...
+)
 
 # Final Mask Selction Parameters
 # Threshold to consider a voxel as part of the pituitary gland based on final score
-final_score_threshold = 0.5  # Range 0-1
+final_score_threshold = 0.85  # Range 0-1
 
 
 ####################################################
