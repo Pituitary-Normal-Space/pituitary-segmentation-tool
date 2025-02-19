@@ -72,9 +72,11 @@ The steps it follows are outlined below by broad concept.
 1. Preprocessed the MRIs by completing motion correction, smoothing, and affine transformation of T1 to T2 space
 
 - Before preprocessing
+
   ![Unprocessed MRIs](.images/unprocessed.png)
 
 - After preprocessing
+
   ![Processed MRIs](.images/processed.png)
 
 2. Overlay T1 and T2 for visualization purposes (optional)
@@ -85,13 +87,17 @@ The steps it follows are outlined below by broad concept.
 3. Coregister to MNI
 
 - Images moved to MNI space
+
   ![T1 and T2 MRIs in MNI Space](.images/MNI_space.png)
 
 4. Pituitary segmentation: creates a ROI around centroid and shifts the centroid iteratively based on the final mask the below methods create.
 
 - a. _Score-based segmentation_: gives each voxel in ROI a score based on distance, intensity, and connectivity with centroid.
+
   - Sample mask via score-based segmentation
+
     ![Score-based segmentation mask](.images/score_based_segmentation.png)
+
 - b. _Region-growing segmentation_: starting with the centroid adds X number of voxels to the mask based on similarity with nearest voxels established as part of the mask.
   - Sample mask via region-growing segmentation
   - <mask>
