@@ -15,6 +15,7 @@ from skimage.morphology import ball, binary_closing
 
 # Local libs
 from config import (
+    number_threads_fnirt,
     delete_temp_files,
     default_centroid,
     smoothing_sigma,
@@ -143,6 +144,13 @@ class Subject:
         self.final_mask_stats: Optional[Dict[str, Any]] = None
 
         # Check that config parameters are valid
+        # If number_threads_fnirt is not a string representation of an int, raise an error
+        if type(number_threads_fnirt) is not int:
+            raise ValueError("Number of threads for FNIRT must be a int.")
+
+        if number_threads_fnirt < 1:
+            raise ValueError("Number of threads for FNIRT must be greater than 0.")
+
         if (
             type(x_range) is not tuple
             or len(x_range) != 2
@@ -567,6 +575,8 @@ class Subject:
                 self.output_dir, T1_SMOOTH_NONLIN_TO_MNI_FILE
             )
 
+            env = os.environ.copy()
+            env["OMP_NUM_THREADS"] = str(number_threads_fnirt)
             # Compute Nonlinear Warp using FNIRT
             subprocess.run(
                 [

@@ -1,11 +1,18 @@
 # Description: Configuration file for the project.
 # Allows you to manipulate the parameters of the preprocessing pipeline and NL space development without changing the main code.
 
+# Parameters to optimize computer resources
+# Percent of CPUs to attempt to use for multiprocessing. Be weary of using too many CPUs as it can cause the computer to freeze d/t memory usage.
+percent_cpus_to_use = 0.2
+# This is the number of threads to use for FNIRT.
+number_threads_fnirt = 8  # I placed it at 8, I would leave it here. If you run into memory issues, you can try lowering it.
+
+
 # If you want to see images for every step of the pipeline, set this to True.
 # It will stop and wait for you to close the image to continue.
-show_images = True
+show_images = False
 # Delete the temporary files created during the pipeline.
-delete_temp_files = False
+delete_temp_files = True
 
 ####################################################
 # Pituitary Segmentation Parameters
