@@ -168,7 +168,7 @@ def objective(trial) -> float:
 
 # Run optimization
 study = optuna.create_study(direction="maximize", study_name="Pituitary Segmentation")
-study.optimize(objective, n_trials=100)
+study.optimize(objective, n_trials=300)
 
 # Print best config
 print("Best params:", study.best_params)

@@ -1,5 +1,6 @@
 # Description: Configuration file for the project.
 # Allows you to manipulate the parameters of the preprocessing pipeline and NL space development without changing the main code.
+# In the form of a singleton class to allow updating of parameters during runtime (used for tuning).
 
 
 class Config:
