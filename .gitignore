@@ -165,4 +165,6 @@ unprocessed/*
 !unprocessed/.gitkeep
 processed/*
 !processed/.gitkeep
+ground_truth_masks/*
+!ground_truth_masks/.gitkeep
 .DS_Store

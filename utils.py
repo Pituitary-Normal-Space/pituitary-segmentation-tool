@@ -6,7 +6,9 @@ Python script containing functions the main script uses to obtain and manipulate
 import os
 
 # Third party imports
+import numpy as np
 import pandas as pd
+import nibabel as nib
 
 # Local application imports
 from subject import Subject
@@ -19,6 +21,43 @@ from const import (
     T2_DATA,
     T2_FILE_NAME_SUFFIX,
 )
+
+
+def get_DICE(nii1_path, nii2_path):
+    """
+    Computes the Dice Similarity Coefficient (DSC) between two nii.gz files.
+    Parameters:
+    nii1_path (str): Path to the first NIfTI file.
+    nii2_path (str): Path to the second NIfTI file.
+
+    Returns:
+    float: Dice Similarity Coefficient (DSC), ranging from 0 to 1.
+    """
+    # Load NIfTI images
+    nii1 = nib.load(nii1_path).get_fdata()
+    nii1 = np.flip(nii1, axis=2)
+    nii2 = nib.load(nii2_path).get_fdata()
+
+    # Ensure the shapes match
+    if nii1.shape != nii2.shape:
+        raise ValueError("Input NIfTI files must have the same shape")
+
+    # Turn into binary masks
+    nii1 = (nii1 > 0).astype(int)
+    nii2 = (nii2 > 0).astype(int)
+
+    if np.sum(nii1) == 0 and np.sum(nii2) == 0:
+        return 1.0  # If both segmentations are empty, consider them a perfect match
+
+    if np.sum(nii1) == 0 or np.sum(nii2) == 0:
+        print("One of the masks is empty.")
+        return 0.0  # If one mask is empty, there's no overlap, so DSC = 0
+
+    # Compute Dice coefficient
+    intersection = np.sum(nii1 * nii2)
+    sum_volumes = np.sum(nii1) + np.sum(nii2)
+
+    return 2.0 * intersection / sum_volumes
 
 
 def create_subject_list(

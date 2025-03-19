@@ -21,6 +21,7 @@ def show_mri_slices(
     highlight_threshold: Tuple[int, int] = None,
     overlay: bool = False,
     colormaps: List[str] = None,
+    override_show: bool = False,
 ) -> None:
     """
     Display axial, sagittal, and coronal slices of multiple MRI images side by side or overlaid.
@@ -31,10 +32,11 @@ def show_mri_slices(
     :param highlight_threshold: Tuple (low, high) to highlight a range of intensities.
     :param overlay: If True, overlay multiple images on top of each other instead of showing them separately.
     :param colormaps: List of colormaps to use for each image. Defaults to ['gray'] for single images or ['gray', 'hot', ...] for overlays.
+    :param override_show: If True, override the global show_images setting.
 
     :return: None
     """
-    if not show_images:
+    if not show_images and not override_show:
         return
     if titles is not None and len(titles) != len(mri_paths) and not overlay:
         raise ValueError(

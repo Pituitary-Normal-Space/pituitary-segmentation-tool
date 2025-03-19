@@ -4,6 +4,7 @@ import os
 # Folders
 PATH_TO_UNPROCESSED_DATA = "unprocessed"
 PATH_TO_PROCESSED_DATA = "processed"
+PATH_TO_GROUND_TRUTH_MASKS = "ground_truth_masks"
 SUFFIX_SUBJECT_ID = "_3T_Structural_unproc"
 SUFFIX_SUBJECT_ID_PROCESSED = "_3T_Structural_proc"
 UNPROCESSED_DATA = os.path.join("unprocessed", "3T")

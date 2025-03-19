@@ -39,6 +39,8 @@ def process_subject(subject):
         "108828",
         "110411",
         "113922",
+        "111716",
+        "116524",
     ]:
         print(f"Skipping {subject.subject_id}")
         return

@@ -794,7 +794,7 @@ class Subject:
 
         # Show the final refined mask overlayed on the T1 image
         show_mri_slices(
-            [self.t1_in_mni_space, self.prob_pituitary_mask],
+            [self.t1_in_mni_space, self.binary_pituitary_mask],
             slice_index=self.slice_indices,
             titles=["Final T1 MRI with Refined Pituitary Mask Overlay"],
             overlay=True,
@@ -1490,7 +1490,8 @@ class Subject:
         mask_coords = np.array(np.where(mask_data > 0)).T
 
         if len(mask_coords) == 0:
-            raise ValueError("No voxels found in pituitary mask")
+            print("No voxels found in pituitary mask.")
+            # raise ValueError("No voxels found in pituitary mask")
 
         # Calculate center of mass in voxel space
         # Replace the center of mass calculation with:

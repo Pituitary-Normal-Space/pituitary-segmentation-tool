@@ -5,7 +5,7 @@
 # Percent of CPUs to attempt to use for multiprocessing. Be weary of using too many CPUs as it can cause the computer to freeze d/t memory usage.
 percent_cpus_to_use = 0.2
 # This is the number of threads to use for FNIRT.
-number_threads_fnirt = 8  # I placed it at 8, I would leave it here. If you run into memory issues, you can try lowering it.
+number_threads_fnirt = 6  # I placed it at 8, I would leave it here. If you run into memory issues, you can try lowering it.
 
 
 # If you want to see images for every step of the pipeline, set this to True.
