@@ -3,7 +3,7 @@ import os
 
 # Internal imports
 from const import PATH_TO_GROUND_TRUTH_MASKS, KEY_MAP_NAME, PATH_TO_UNPROCESSED_DATA
-import config
+from config import config
 
 # External imports
 import optuna
@@ -129,7 +129,7 @@ def objective(trial) -> float:
         )
     ]
 
-    # Select random subset of 4 subjects
+    # Select random subset of 5 subjects
     subject_list = subject_list[:5]
     print("Selected subjects:", [subject.subject_id for subject in subject_list])
 

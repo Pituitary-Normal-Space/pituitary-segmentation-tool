@@ -14,40 +14,8 @@ from scipy.ndimage import label, convolve
 from skimage.morphology import ball, binary_closing
 
 # Local libs
-from config import (
-    number_threads_fnirt,
-    delete_temp_files,
-    default_centroid,
-    smoothing_sigma,
-    fractional_intensity_t1,
-    fractional_intensity_t2,
-    gradient_t1,
-    gradient_t2,
-    robust_brain_extraction,
-    spline_order,
-    hessian_precision,
-    x_range,
-    y_range,
-    z_range,
-    intensity_range,
-    distance_weight,
-    intensity_range_weight,
-    connectivity_weight,
-    min_score_threshold,
-    intensity_tolerance,
-    max_voxels,
-    max_voxel_drift,
-    high_quality_neighbors_to_consider_connected,
-    region_growing_weight,
-    score_based_weight,
-    num_neighbors_required_to_boost,
-    min_score_considered_high_score,
-    min_score_to_boost_if_quality_neighbors,
-    infundibulum_range,
-    appendage_removal_radius,
-    final_score_threshold,
-    do_appendage_removal,
-)
+from config import config
+
 from const import (
     # T1_BRAIN_FILE,
     # T2_BRAIN_FILE,
@@ -145,231 +113,245 @@ class Subject:
 
         # Check that config parameters are valid
         # If number_threads_fnirt is not a string representation of an int, raise an error
-        if type(number_threads_fnirt) is not int:
+        if type(config.number_threads_fnirt) is not int:
             raise ValueError("Number of threads for FNIRT must be a int.")
 
-        if number_threads_fnirt < 1:
+        if config.number_threads_fnirt < 1:
             raise ValueError("Number of threads for FNIRT must be greater than 0.")
 
         if (
-            type(x_range) is not tuple
-            or len(x_range) != 2
-            and type(x_range[0]) is not int
-            and type(x_range[1]) is not int
+            type(config.x_range) is not tuple
+            or len(config.x_range) != 2
+            and type(config.x_range[0]) is not int
+            and type(config.x_range[1]) is not int
         ):
             raise ValueError("X range must be a tuple of two integers")
 
         if (
-            type(y_range) is not tuple
-            or len(y_range) != 2
-            and type(y_range[0]) is not int
-            and type(y_range[1]) is not int
+            type(config.y_range) is not tuple
+            or len(config.y_range) != 2
+            and type(config.y_range[0]) is not int
+            and type(config.y_range[1]) is not int
         ):
             raise ValueError("Y range must be a tuple of two integers")
 
         if (
-            type(z_range) is not tuple
-            or len(z_range) != 2
-            and type(z_range[0]) is not int
-            and type(z_range[1]) is not int
+            type(config.z_range) is not tuple
+            or len(config.z_range) != 2
+            and type(config.z_range[0]) is not int
+            and type(config.z_range[1]) is not int
         ):
             raise ValueError("Z range must be a tuple of two integers")
 
         if (
-            type(intensity_range) is not tuple
-            or len(intensity_range) != 2
-            and type(intensity_range[0]) is not int
-            and type(intensity_range[1]) is not int
+            type(config.intensity_range) is not tuple
+            or len(config.intensity_range) != 2
+            and type(config.intensity_range[0]) is not int
+            and type(config.intensity_range[1]) is not int
         ):
             raise ValueError("Intensity range must be a tuple of two integers")
 
-        if type(distance_weight) is not float:
+        if type(config.distance_weight) is not float:
             raise ValueError("Distance weight must be a float")
 
-        if type(intensity_range_weight) is not float:
+        if type(config.intensity_range_weight) is not float:
             raise ValueError("Intensity range weight must be a float")
 
-        if type(connectivity_weight) is not float:
+        if type(config.connectivity_weight) is not float:
             raise ValueError("Connectivity weight must be a float")
 
-        if type(min_score_threshold) is not float:
+        if type(config.min_score_threshold) is not float:
             raise ValueError("Minimum score threshold must be a float between 0 and 1")
 
-        if type(intensity_tolerance) is not int:
+        if type(config.intensity_tolerance) is not int:
             raise ValueError("Intensity tolerance must be an integer")
 
-        if intensity_tolerance < 0:
+        if config.intensity_tolerance < 0:
             raise ValueError("Intensity tolerance must be greater than 0")
 
-        if type(max_voxels) is not int:
+        if type(config.max_voxels) is not int:
             raise ValueError("Max voxels must be an integer")
 
-        if max_voxels < 0:
+        if config.max_voxels < 0:
             raise ValueError("Max voxels must be greater than 0")
 
-        if min_score_threshold < 0 or min_score_threshold > 1:
+        if config.min_score_threshold < 0 or config.min_score_threshold > 1:
             raise ValueError("Minimum score threshold must be between 0 and 1")
 
         if (
             round(
-                distance_weight + intensity_range_weight + connectivity_weight,
+                config.distance_weight
+                + config.intensity_range_weight
+                + config.connectivity_weight,
                 10,
             )
             != 1
         ):
             raise ValueError(
-                f"Weights for distance, intensity, connectivity, and naive mask must add up to 1 they are {distance_weight}, {intensity_range_weight}, {connectivity_weight} adding to {distance_weight + intensity_range_weight + connectivity_weight}"
+                f"Weights for distance, intensity, connectivity, and naive mask must add up to 1 they are {config.distance_weight}, {config.intensity_range_weight}, {config.connectivity_weight} adding to {config.distance_weight + config.intensity_range_weight + config.connectivity_weight}"
             )
 
-        if type(fractional_intensity_t1) is not float:
+        if type(config.fractional_intensity_t1) is not float:
             raise ValueError("Fractional intensity threshold for T1 must be a float")
 
-        if type(fractional_intensity_t2) is not float:
+        if type(config.fractional_intensity_t2) is not float:
             raise ValueError("Fractional intensity threshold for T2 must be a float")
 
-        if fractional_intensity_t1 < 0 or fractional_intensity_t1 > 1:
+        if config.fractional_intensity_t1 < 0 or config.fractional_intensity_t1 > 1:
             raise ValueError(
                 "Fractional intensity threshold for T1 must be between 0 and 1"
             )
 
-        if fractional_intensity_t2 < 0 or fractional_intensity_t2 > 1:
+        if config.fractional_intensity_t2 < 0 or config.fractional_intensity_t2 > 1:
             raise ValueError(
                 "Fractional intensity threshold for T2 must be between 0 and 1"
             )
 
-        if type(gradient_t1) is not float:
+        if type(config.gradient_t1) is not float:
             raise ValueError("Gradient threshold for T1 must be a float")
 
-        if type(gradient_t2) is not float:
+        if type(config.gradient_t2) is not float:
             raise ValueError("Gradient threshold for T2 must be a float")
 
-        if gradient_t1 < 0:
+        if config.gradient_t1 < 0:
             raise ValueError("Gradient threshold for T1 must be greater than 0")
 
-        if gradient_t2 < 0:
+        if config.gradient_t2 < 0:
             raise ValueError("Gradient threshold for T2 must be greater than 0")
 
-        if type(robust_brain_extraction) is not bool:
+        if type(config.robust_brain_extraction) is not bool:
             raise ValueError("Robust brain extraction must be a boolean")
 
-        if type(smoothing_sigma) is not float and type(smoothing_sigma) is not int:
+        if (
+            type(config.smoothing_sigma) is not float
+            and type(config.smoothing_sigma) is not int
+        ):
             raise ValueError("Smoothing sigma must be an integer")
 
-        if smoothing_sigma < 0:
+        if config.smoothing_sigma < 0:
             raise ValueError("Smoothing sigma must be greater than 0")
 
-        if spline_order not in [2, 3]:
+        if config.spline_order not in [2, 3]:
             raise ValueError("Spline order must be 2 or 3")
 
-        if hessian_precision not in ["double", "float"]:
+        if config.hessian_precision not in ["double", "float"]:
             raise ValueError("Hessian precision must be double or float")
 
-        if type(delete_temp_files) is not bool:
+        if type(config.delete_temp_files) is not bool:
             raise ValueError("Delete temp files must be a boolean")
 
-        if type(default_centroid) is not tuple or len(default_centroid) != 3:
-            raise ValueError("Default centroid must be a tuple of three integers")
-
         if (
-            type(default_centroid[0]) is not int
-            or type(default_centroid[1]) is not int
-            or type(default_centroid[2]) is not int
+            type(config.default_centroid) is not tuple
+            or len(config.default_centroid) != 3
         ):
             raise ValueError("Default centroid must be a tuple of three integers")
 
-        if type(max_voxel_drift) is not int:
+        if (
+            type(config.default_centroid[0]) is not int
+            or type(config.default_centroid[1]) is not int
+            or type(config.default_centroid[2]) is not int
+        ):
+            raise ValueError("Default centroid must be a tuple of three integers")
+
+        if type(config.max_voxel_drift) is not int:
             raise ValueError("Max voxel drift must be an integer")
 
-        if max_voxel_drift < 0:
+        if config.max_voxel_drift < 0:
             raise ValueError("Max voxel drift must be greater than 0")
 
-        if type(high_quality_neighbors_to_consider_connected) is not int:
+        if type(config.high_quality_neighbors_to_consider_connected) is not int:
             raise ValueError(
                 "High quality neighbors to consider connected must be an integer"
             )
 
         if (
-            high_quality_neighbors_to_consider_connected < 0
-            or high_quality_neighbors_to_consider_connected > 26
+            config.high_quality_neighbors_to_consider_connected < 0
+            or config.high_quality_neighbors_to_consider_connected > 26
         ):
             raise ValueError(
                 "High quality neighbors to consider connected must be greater than 0 and less than 26"
             )
 
         if (
-            type(region_growing_weight) is not float
-            and type(region_growing_weight) is not int
+            type(config.region_growing_weight) is not float
+            and type(config.region_growing_weight) is not int
         ):
             raise ValueError("Region growing weight must be a float")
 
         if (
-            type(score_based_weight) is not float
-            and type(score_based_weight) is not int
+            type(config.score_based_weight) is not float
+            and type(config.score_based_weight) is not int
         ):
             raise ValueError("Score based weight must be a float")
 
-        if region_growing_weight < 0 or region_growing_weight > 1:
+        if config.region_growing_weight < 0 or config.region_growing_weight > 1:
             raise ValueError("Region growing weight must be between 0 and 1")
 
-        if score_based_weight < 0 or score_based_weight > 1:
+        if config.score_based_weight < 0 or config.score_based_weight > 1:
             raise ValueError("Score based weight must be between 0 and 1")
 
-        if round(score_based_weight + region_growing_weight != 1, 10):
+        if round(config.score_based_weight + config.region_growing_weight != 1, 10):
             raise ValueError(
                 "Region growing weight and score based weight must add up to 1"
             )
 
-        if type(num_neighbors_required_to_boost) is not int:
+        if type(config.num_neighbors_required_to_boost) is not int:
             raise ValueError("Number of neighbors required to boost must be an integer")
 
-        if num_neighbors_required_to_boost < 0 or num_neighbors_required_to_boost > 26:
+        if (
+            config.num_neighbors_required_to_boost < 0
+            or config.num_neighbors_required_to_boost > 26
+        ):
             raise ValueError(
                 "Number of neighbors required to boost must be between 0 and 26"
             )
 
-        if type(min_score_considered_high_score) is not float:
+        if type(config.min_score_considered_high_score) is not float:
             raise ValueError("Minimum score considered high score must be a float")
 
-        if min_score_considered_high_score < 0 or min_score_considered_high_score > 1:
+        if (
+            config.min_score_considered_high_score < 0
+            or config.min_score_considered_high_score > 1
+        ):
             raise ValueError(
                 "Minimum score considered high score must be between 0 and 1"
             )
 
-        if type(min_score_to_boost_if_quality_neighbors) is not float:
+        if type(config.min_score_to_boost_if_quality_neighbors) is not float:
             raise ValueError(
                 "Minimum score to boost if quality neighbors must be a float"
             )
 
         if (
-            min_score_to_boost_if_quality_neighbors < 0
-            or min_score_to_boost_if_quality_neighbors > 1
+            config.min_score_to_boost_if_quality_neighbors < 0
+            or config.min_score_to_boost_if_quality_neighbors > 1
         ):
             raise ValueError(
                 "Minimum score to boost if quality neighbors must be between 0 and 1"
             )
 
-        if type(infundibulum_range) is not int:
+        if type(config.infundibulum_range) is not int:
             raise ValueError("Infundibulum range must be an integer")
 
-        if infundibulum_range < 0:
+        if config.infundibulum_range < 0:
             raise ValueError("Infundibulum range must be greater than 0")
 
         if (
-            type(appendage_removal_radius) is not float
-            and type(appendage_removal_radius) is not int
+            type(config.appendage_removal_radius) is not float
+            and type(config.appendage_removal_radius) is not int
         ):
             raise ValueError("Appendage removal radius must be a float or int")
 
-        if appendage_removal_radius < 1.0:
+        if config.appendage_removal_radius < 1.0:
             raise ValueError("Appendage removal radius must be greater than 1")
 
-        if type(final_score_threshold) is not float:
+        if type(config.final_score_threshold) is not float:
             raise ValueError("Final score threshold must be a float")
 
-        if final_score_threshold < 0 or final_score_threshold > 1:
+        if config.final_score_threshold < 0 or config.final_score_threshold > 1:
             raise ValueError("Final score threshold must be between 0 and 1")
 
-        if type(do_appendage_removal) is not bool:
+        if type(config.do_appendage_removal) is not bool:
             raise ValueError("Do appendage removal must be a boolean")
 
     def __str__(self) -> str:
@@ -461,7 +443,7 @@ class Subject:
         self.__motion_correction_and_smoothing()
         self.__registration_and_normalization()
 
-        if delete_temp_files:
+        if config.delete_temp_files:
             self.__delete_temp_files("preprocessed")
 
         print(
@@ -576,7 +558,7 @@ class Subject:
             )
 
             env = os.environ.copy()
-            env["OMP_NUM_THREADS"] = str(number_threads_fnirt)
+            env["OMP_NUM_THREADS"] = str(config.number_threads_fnirt)
             # Compute Nonlinear Warp using FNIRT
             subprocess.run(
                 [
@@ -586,8 +568,8 @@ class Subject:
                     f"--aff={self.affine_matrix}",
                     f"--cout={self.warp_field}",
                     f"--iout={smoothed_normalized}",
-                    f"--splineorder={str(spline_order)}",
-                    f"--numprec={hessian_precision}",
+                    f"--splineorder={str(config.spline_order)}",
+                    f"--numprec={config.hessian_precision}",
                     "--verbose",
                 ],
                 check=True,
@@ -659,16 +641,16 @@ class Subject:
 
         self.moved_to_mni_norm_space = True
 
-        if delete_temp_files:
+        if config.delete_temp_files:
             self.__delete_temp_files("in_mni")
 
     def segment_pituitary_gland(
         self,
         mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
-            (x_range[0], y_range[0], z_range[0]),
-            (x_range[1], y_range[1], z_range[1]),
+            (config.x_range[0], config.y_range[0], config.z_range[0]),
+            (config.x_range[1], config.y_range[1], config.z_range[1]),
         ),
-        appendage_removal=do_appendage_removal,
+        appendage_removal=config.do_appendage_removal,
     ) -> None:
         """
         Creates a probabilistic pituitary mask using both methods, refines it, and calculates statistics.
@@ -708,7 +690,7 @@ class Subject:
 
         # List to store previous centroids to check for convergence
         previous_centroids = []
-        centroid = default_centroid
+        centroid = config.default_centroid
         # Get current w, h, d around centroid using mni coords
         width = abs(mni_coords[1][0] - mni_coords[0][0])
         height = abs(mni_coords[1][1] - mni_coords[0][1])
@@ -720,7 +702,9 @@ class Subject:
                 )
             previous_centroids.append(centroid)
             # If greater than max_voxel_drift mm3 shift in a direction from original centroid, break
-            if self.__check_for_drift(default_centroid, centroid, max_voxel_drift):
+            if self.__check_for_drift(
+                config.default_centroid, centroid, config.max_voxel_drift
+            ):
                 print("Centroid has drifted too far from origin. Exiting...")
                 break
 
@@ -780,7 +764,8 @@ class Subject:
 
             # Convert refined mask to binary for statistics using 0.5 threshold
             binary_mask_img = nib.Nifti1Image(
-                (refined_mask > final_score_threshold).astype(np.uint8), t1_img.affine
+                (refined_mask > config.final_score_threshold).astype(np.uint8),
+                t1_img.affine,
             )
             self.binary_pituitary_mask = os.path.join(
                 self.output_dir, PITUITARY_MASK_FILE
@@ -858,8 +843,8 @@ class Subject:
     def __create_naive_pituitary_mask(
         self,
         mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
-            (x_range[0], y_range[0], z_range[0]),
-            (x_range[1], y_range[1], z_range[1]),
+            (config.x_range[0], config.y_range[0], config.z_range[0]),
+            (config.x_range[1], config.y_range[1], config.z_range[1]),
         ),  # These coordinates were determined by me
     ) -> None:
         """
@@ -934,9 +919,11 @@ class Subject:
             f"Pituitary mask intensity range: {np.min(pituitary_data)} - {np.max(pituitary_data)}"
         )
         min_intensity = np.min(
-            pituitary_data[pituitary_data > intensity_range[0]]
+            pituitary_data[pituitary_data > config.intensity_range[0]]
         )  # Ignore background, background tissue, and vessels for now
-        max_intensity = np.max(pituitary_data[pituitary_data < intensity_range[1]])
+        max_intensity = np.max(
+            pituitary_data[pituitary_data < config.intensity_range[1]]
+        )
         highlight_threshold = (min_intensity, max_intensity)
 
         print(f"Highlighting intensities between {highlight_threshold}")
@@ -978,8 +965,8 @@ class Subject:
         self,
         centroid: Tuple[int, int, int],
         mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
-            (x_range[0], y_range[0], z_range[0]),
-            (x_range[1], y_range[1], z_range[1]),
+            (config.x_range[0], config.y_range[0], config.z_range[0]),
+            (config.x_range[1], config.y_range[1], config.z_range[1]),
         ),  # These coordinates were determined by me
     ) -> np.ndarray:
         """
@@ -1030,10 +1017,14 @@ class Subject:
         z_max = min(t1_data.shape[2] - 1, z_max)
 
         # Get coordinates and intensities for all voxels in the specified voxel space region
-        x_range = range(x_min, x_max + 1)
-        y_range = range(y_min, y_max + 1)
-        z_range = range(z_min, z_max + 1)
-        coords = np.array(np.meshgrid(x_range, y_range, z_range)).reshape(3, -1).T
+        config.x_range = range(x_min, x_max + 1)
+        config.y_range = range(y_min, y_max + 1)
+        config.z_range = range(z_min, z_max + 1)
+        coords = (
+            np.array(np.meshgrid(config.x_range, config.y_range, config.z_range))
+            .reshape(3, -1)
+            .T
+        )
         intensities = t1_data[coords[:, 0], coords[:, 1], coords[:, 2]]
 
         def get_connected_component(coords, mask_shape, centroid):
@@ -1068,7 +1059,8 @@ class Subject:
 
                     # Only keep voxels with at least high_quality_neighbors_to_consider_connected neighbors
                     connected_mask = (
-                        neighbor_count >= high_quality_neighbors_to_consider_connected
+                        neighbor_count
+                        >= config.high_quality_neighbors_to_consider_connected
                     ) & initial_component
                     return connected_mask
             return np.zeros(mask_shape, dtype=bool)
@@ -1125,14 +1117,20 @@ class Subject:
             # Connectivity score - strongly prefer voxels connected to centroid
             # First get high-scoring voxels based on other criteria
             initial_scores = (
-                (distance_weight / distance_weight + intensity_range_weight)
+                (
+                    config.distance_weight / config.distance_weight
+                    + config.intensity_range_weight
+                )
                 * distance_scores
             ) + (
-                (intensity_range_weight / distance_weight + intensity_range_weight)
+                (
+                    config.intensity_range_weight / config.distance_weight
+                    + config.intensity_range_weight
+                )
                 * intensity_scores
             )
             high_score_mask = initial_scores >= np.percentile(
-                initial_scores, min_score_threshold
+                initial_scores, config.min_score_threshold
             )
 
             # Get connected component from these high-scoring voxels
@@ -1148,9 +1146,9 @@ class Subject:
 
             # Combine scores with weights
             final_scores = (
-                distance_weight * distance_scores
-                + intensity_range_weight * intensity_scores
-                + connectivity_weight * connectivity_scores
+                config.distance_weight * distance_scores
+                + config.intensity_range_weight * intensity_scores
+                + config.connectivity_weight * connectivity_scores
             )
 
             return final_scores
@@ -1158,7 +1156,11 @@ class Subject:
         # Replace the current coordinate transformation code with:
         # Initial MNI coordinates for pituitary
         mni_coords_pituitary = np.array(
-            [default_centroid[0], default_centroid[1], default_centroid[2]]
+            [
+                config.default_centroid[0],
+                config.default_centroid[1],
+                config.default_centroid[2],
+            ]
         )  # Adding 1 for homogeneous coordinates
         # Get voxel coordinates and ensure they are ints
         voxel_coords = self.__convert_from_mni_to_voxel_space(
@@ -1180,7 +1182,7 @@ class Subject:
 
         # Calculate clustering scores
         scores = compute_scores(
-            coords, intensities, centroid, intensity_range, t1_data.shape
+            coords, intensities, centroid, config.intensity_range, t1_data.shape
         )
 
         # Instead of creating a binary mask, create a probabilistic one using the scores
@@ -1188,7 +1190,7 @@ class Subject:
         prob_mask[coords[:, 0], coords[:, 1], coords[:, 2]] = scores
 
         # Apply threshold but keep probabilities
-        prob_mask[prob_mask < min_score_threshold] = 0
+        prob_mask[prob_mask < config.min_score_threshold] = 0
 
         print(f"Score-based pituitary mask created with {np.sum(prob_mask)} voxels")
 
@@ -1227,8 +1229,8 @@ class Subject:
         self,
         centroid: Tuple[int, int, int],
         mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
-            (x_range[0], y_range[0], z_range[0]),
-            (x_range[1], y_range[1], z_range[1]),
+            (config.x_range[0], config.y_range[0], config.z_range[0]),
+            (config.x_range[1], config.y_range[1], config.z_range[1]),
         ),
     ) -> np.ndarray:
         """
@@ -1267,8 +1269,8 @@ class Subject:
 
         # Check if the centroid is within the intensity range. If not then use the centroid of the score-based mask
         if (
-            t1_data[tuple(centroid)] < intensity_range[0]
-            or t1_data[tuple(centroid)] > intensity_range[1]
+            t1_data[tuple(centroid)] < config.intensity_range[0]
+            or t1_data[tuple(centroid)] > config.intensity_range[1]
         ):
             print(
                 f"WARNING: Centroid {centroid} was not in the intensity range skipping region growing"
@@ -1278,16 +1280,16 @@ class Subject:
             centroid = np.unravel_index(
                 np.argmax(
                     score_based_probs
-                    * (t1_data >= intensity_range[0])
-                    * (t1_data <= intensity_range[1])
+                    * (t1_data >= config.intensity_range[0])
+                    * (t1_data <= config.intensity_range[1])
                 ),
                 score_based_probs.shape,
             )
 
             # See if any centroid was found
             if (
-                t1_data[centroid] < intensity_range[0]
-                or t1_data[centroid] > intensity_range[1]
+                t1_data[centroid] < config.intensity_range[0]
+                or t1_data[centroid] > config.intensity_range[1]
             ):
                 # Skip region growing if no centroid was found
                 print("No centroid found in intensity range. Skipping region growing.")
@@ -1315,8 +1317,8 @@ class Subject:
 
         # Assign probabilities based on voting
         # Combine probabilities (0.6 weight for score-based, 0.4 for region growing)
-        prob_mask = score_based_weight * score_based_probs
-        prob_mask[region_mask > 0] += region_growing_weight
+        prob_mask = config.score_based_weight * score_based_probs
+        prob_mask[region_mask > 0] += config.region_growing_weight
 
         # Neighbors-based boosting
         # Fill in voxels surrounded by high-probability neighbors
@@ -1324,7 +1326,7 @@ class Subject:
         for _ in range(2):  # Do this twice to ensure good coverage
             # Find voxels with high probability neighbors
             neighbor_sum = convolve(
-                (prob_mask > min_score_considered_high_score).astype(
+                (prob_mask > config.min_score_considered_high_score).astype(
                     float
                 ),  # Look at very high probability voxels
                 structure,
@@ -1332,11 +1334,11 @@ class Subject:
             )
             # If a voxel has 20+ high probability neighbors (out of 26 possible), make it high probability
             high_neighbor_mask = (
-                (neighbor_sum > num_neighbors_required_to_boost)
-                & (prob_mask < min_score_considered_high_score)
-                & (prob_mask > min_score_to_boost_if_quality_neighbors)
+                (neighbor_sum > config.num_neighbors_required_to_boost)
+                & (prob_mask < config.min_score_considered_high_score)
+                & (prob_mask > config.min_score_to_boost_if_quality_neighbors)
             )
-            prob_mask[high_neighbor_mask] = min_score_considered_high_score
+            prob_mask[high_neighbor_mask] = config.min_score_considered_high_score
 
         print("Created probabilistic mask. Returning refined mask.")
 
@@ -1360,7 +1362,9 @@ class Subject:
         print("Removing appendages...")
 
         # Threshold mask (convert to binary)
-        bin_mask = prob_mask > final_score_threshold  # Keeping high-confidence voxels
+        bin_mask = (
+            prob_mask > config.final_score_threshold
+        )  # Keeping high-confidence voxels
 
         # Label connected components
         labeled_mask, num_features = label(bin_mask)
@@ -1380,7 +1384,9 @@ class Subject:
 
         if keep_inf_extension:
             # Convert MNI [0, 0, -20] (infundibulum region) to voxel space
-            mni_inf_position = np.array([0, 0, max(z_range), 1])  # Adjust z if needed
+            mni_inf_position = np.array(
+                [0, 0, max(config.z_range), 1]
+            )  # Adjust z if needed
             voxel_inf_position = np.dot(np.linalg.inv(t1_img_affine), mni_inf_position)[
                 :3
             ]
@@ -1390,13 +1396,14 @@ class Subject:
             for i in range(1, num_features + 1):
                 coords = np.argwhere(labeled_mask == i)
                 if np.any(
-                    np.abs(coords[:, 0] - voxel_inf_position[0]) < infundibulum_range
+                    np.abs(coords[:, 0] - voxel_inf_position[0])
+                    < config.infundibulum_range
                 ):  # Allow small x variation
                     cleaned_mask[labeled_mask == i] = prob_mask[labeled_mask == i]
 
         # Apply morphological closing to remove small gaps and smooth boundaries
         cleaned_mask = binary_closing(
-            cleaned_mask, ball(appendage_removal_radius)
+            cleaned_mask, ball(config.appendage_removal_radius)
         ).astype(np.uint8)
 
         print("Appendages removed. Returning refined mask.")
@@ -1406,8 +1413,8 @@ class Subject:
         self,
         image: np.ndarray,
         seed: Tuple[int, int, int],
-        intensity_tol: int = intensity_tolerance,
-        max_voxels: int = max_voxels,
+        intensity_tol: int = config.intensity_tolerance,
+        max_voxels: int = config.max_voxels,
     ) -> np.ndarray:
         """
         Perform region growing segmentation from the given seed point.
@@ -1586,7 +1593,7 @@ class Subject:
                 "fslmaths",
                 self.motion_corrected_t1w,
                 "-s",
-                str(smoothing_sigma),
+                str(config.smoothing_sigma),
                 self.smoothed_and_mc_t1w,
             ],
             check=True,
@@ -1596,7 +1603,7 @@ class Subject:
                 "fslmaths",
                 self.motion_corrected_t2w,
                 "-s",
-                str(smoothing_sigma),
+                str(config.smoothing_sigma),
                 self.smoothed_and_mc_t2w,
             ],
             check=True,
@@ -1682,8 +1689,8 @@ class Subject:
                         f"--aff={self.affine_matrix}",
                         f"--cout={self.t1_to_t2_warp}",
                         f"--iout={self.t1w_smooth_reg_t2}",
-                        f"--splineorder={str(spline_order)}",
-                        f"--numprec={hessian_precision}",
+                        f"--splineorder={str(config.spline_order)}",
+                        f"--numprec={config.hessian_precision}",
                         "--verbose",
                     ],
                     check=True,

@@ -11,17 +11,17 @@ import pandas as pd
 
 # Local application imports
 from utils import create_subject_list
-from config import percent_cpus_to_use
+from config import config
 from const import PATH_TO_UNPROCESSED_DATA, KEY_MAP_NAME
 
 
-if percent_cpus_to_use > 1:
+if config.percent_cpus_to_use > 1:
     raise ValueError("percent_cpus_to_use must be a float between 0 and 1")
 
-if percent_cpus_to_use <= 0:
+if config.percent_cpus_to_use <= 0:
     raise ValueError("percent_cpus_to_use must be greater than 0")
 
-if type(percent_cpus_to_use) is not float:
+if type(config.percent_cpus_to_use) is not float:
     raise ValueError("percent_cpus_to_use must be a float between 0 and 1")
 
 
@@ -60,7 +60,7 @@ def main() -> None:
     )
 
     # Determine number of cores to use based on percent_cpus_to_use
-    num_cores = max(1, int(mp.cpu_count() * percent_cpus_to_use))
+    num_cores = max(1, int(mp.cpu_count() * config.percent_cpus_to_use))
     print(f"Using {num_cores} cores for processing")
 
     # Create a pool of workers

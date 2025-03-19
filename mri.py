@@ -11,7 +11,7 @@ import nibabel as nib
 import matplotlib.pyplot as plt
 
 # Internal imports
-from config import show_images
+from config import config
 
 
 def show_mri_slices(
@@ -36,7 +36,7 @@ def show_mri_slices(
 
     :return: None
     """
-    if not show_images and not override_show:
+    if not config.show_images and not override_show:
         return
     if titles is not None and len(titles) != len(mri_paths) and not overlay:
         raise ValueError(
