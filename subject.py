@@ -1322,23 +1322,23 @@ class Subject:
 
         # Neighbors-based boosting
         # Fill in voxels surrounded by high-probability neighbors
-        structure = np.ones((3, 3, 3))  # 26-connectivity neighborhood
-        for _ in range(2):  # Do this twice to ensure good coverage
-            # Find voxels with high probability neighbors
-            neighbor_sum = convolve(
-                (prob_mask > config.min_score_considered_high_score).astype(
-                    float
-                ),  # Look at very high probability voxels
-                structure,
-                mode="constant",
-            )
-            # If a voxel has 20+ high probability neighbors (out of 26 possible), make it high probability
-            high_neighbor_mask = (
-                (neighbor_sum > config.num_neighbors_required_to_boost)
-                & (prob_mask < config.min_score_considered_high_score)
-                & (prob_mask > config.min_score_to_boost_if_quality_neighbors)
-            )
-            prob_mask[high_neighbor_mask] = config.min_score_considered_high_score
+        # structure = np.ones((3, 3, 3))  # 26-connectivity neighborhood
+        # for _ in range(2):  # Do this twice to ensure good coverage
+        #     # Find voxels with high probability neighbors
+        #     neighbor_sum = convolve(
+        #         (prob_mask > config.min_score_considered_high_score).astype(
+        #             float
+        #         ),  # Look at very high probability voxels
+        #         structure,
+        #         mode="constant",
+        #     )
+        #     # If a voxel has 20+ high probability neighbors (out of 26 possible), make it high probability
+        #     high_neighbor_mask = (
+        #         (neighbor_sum > config.num_neighbors_required_to_boost)
+        #         & (prob_mask < config.min_score_considered_high_score)
+        #         & (prob_mask > config.min_score_to_boost_if_quality_neighbors)
+        #     )
+        #     prob_mask[high_neighbor_mask] = config.min_score_considered_high_score
 
         print("Created probabilistic mask. Returning refined mask.")
 

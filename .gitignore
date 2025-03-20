@@ -171,3 +171,4 @@ ground_truth_masks/*
 
 
 *.db
+average_DICE_score.txt
