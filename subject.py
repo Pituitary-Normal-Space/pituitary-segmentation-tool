@@ -1508,6 +1508,7 @@ class Subject:
         ]  # Get probability scores for each voxel
 
         # Calculate weighted center of mass using probability scores as weights
+        # If voxel probabilities sum to 0, then keep center of mass and mni center the same
         center_of_mass = np.average(mask_coords, weights=voxel_probabilities, axis=0)
 
         # Convert to MNI space

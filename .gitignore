@@ -168,3 +168,6 @@ processed/*
 ground_truth_masks/*
 !ground_truth_masks/.gitkeep
 .DS_Store
+
+
+*.db

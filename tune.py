@@ -30,6 +30,7 @@ def objective(trial) -> float:
 
     :return: Weighted average of DICE scores.
     """
+    print("Trial:", trial.number)
     # Set range of hyperparameters to tune
     # x coordinate: search around 0 with ±5 range
     x = trial.suggest_int("centroid_x", -2, 2)
@@ -79,16 +80,16 @@ def objective(trial) -> float:
         "high_quality_neighbors_to_consider_connected", 2, 10
     )
     # Tune min score threshold
-    config.min_score_threshold = trial.suggest_float("min_score_threshold", 0.5, 1)
-    # Tune intensity tolerance
-    config.intensity_tolerance = trial.suggest_int("intensity_tolerance", 10, 500)
-    # Tune max voxels
-    config.max_voxels = trial.suggest_int("max_voxels", 5000, 10000)
-    # Tune region growing weight
-    config.score_based_weight = trial.suggest_float("score_based_weight", 0, 1)
-    config.region_growing_weight = (
-        1 - config.score_based_weight
-    )  # Automatically complements to 1
+    config.min_score_threshold = trial.suggest_float("min_score_threshold", 0.5, 0.9)
+    # # Tune intensity tolerance
+    # config.intensity_tolerance = trial.suggest_int("intensity_tolerance", 10, 500)
+    # # Tune max voxels
+    # config.max_voxels = trial.suggest_int("max_voxels", 10000, 20000)
+    # # Tune region growing weight
+    # config.score_based_weight = trial.suggest_float("score_based_weight", 0, 1)
+    # config.region_growing_weight = (
+    #     1 - config.score_based_weight
+    # )  # Automatically complements to 1
 
     config.num_neighbors_required_to_boost = trial.suggest_int(
         "num_neighbors_required_to_boost", 4, 26
@@ -110,7 +111,9 @@ def objective(trial) -> float:
         "appendage_removal_radius", 1, 5
     )
     # Tune final score threshold
-    config.final_score_threshold = trial.suggest_float("final_score_threshold", 0.3, 1)
+    config.final_score_threshold = trial.suggest_float(
+        "final_score_threshold", 0.3, 0.9
+    )
 
     from utils import create_subject_list, get_DICE
 
@@ -161,14 +164,25 @@ def objective(trial) -> float:
     average_DICE_score = sum(DICE_scores) / len(DICE_scores)
     print("Average DICE score:", average_DICE_score)
 
+    # Write average DICE score to a file
+    with open("average_DICE_score.txt", "w") as f:
+        # Get trial number
+        trial = trial.number
+        f.write(f"{trial}{str(average_DICE_score)}")
+
     dice_array = np.array(DICE_scores)
     weighted_score = np.mean(dice_array) - np.std(dice_array)
     return weighted_score
 
 
 # Run optimization
-study = optuna.create_study(direction="maximize", study_name="Pituitary Segmentation")
-study.optimize(objective, n_trials=300)
+study = optuna.create_study(
+    direction="maximize",
+    study_name="Pituitary Segmentation: Score-Based Only",
+    storage="sqlite:///pituitary_segmentation_score_only.db",
+    load_if_exists=True,
+)
+study.optimize(objective, n_trials=250)
 
 # Print best config
 print("Best params:", study.best_params)

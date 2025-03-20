@@ -17,6 +17,7 @@ scipy = "^1.15.1"
 scikit-learn = "^1.6.1"
 scikit-image = "^0.25.1"
 optuna = "^4.2.1"
+optuna-dashboard = "^0.17.0"
 
 
 [build-system]
