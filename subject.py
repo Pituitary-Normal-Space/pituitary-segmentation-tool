@@ -122,26 +122,26 @@ class Subject:
         if (
             type(config.x_range) is not tuple
             or len(config.x_range) != 2
-            and type(config.x_range[0]) is not int
-            and type(config.x_range[1]) is not int
+            and type(config.x_range[0]) not in (int, float)
+            and type(config.x_range[1]) not in (int, float)
         ):
-            raise ValueError("X range must be a tuple of two integers")
+            raise ValueError("X range must be a tuple of two integers or floats")
 
         if (
             type(config.y_range) is not tuple
             or len(config.y_range) != 2
-            and type(config.y_range[0]) is not int
-            and type(config.y_range[1]) is not int
+            and type(config.y_range[0]) not in (int, float)
+            and type(config.y_range[1]) not in (int, float)
         ):
-            raise ValueError("Y range must be a tuple of two integers")
+            raise ValueError("Y range must be a tuple of two integers or floats")
 
         if (
             type(config.z_range) is not tuple
             or len(config.z_range) != 2
-            and type(config.z_range[0]) is not int
-            and type(config.z_range[1]) is not int
+            and type(config.z_range[0]) not in (int, float)
+            and type(config.z_range[1]) not in (int, float)
         ):
-            raise ValueError("Z range must be a tuple of two integers")
+            raise ValueError("Z range must be a tuple of two integers or floats")
 
         if (
             type(config.intensity_range) is not tuple
@@ -244,14 +244,18 @@ class Subject:
             type(config.default_centroid) is not tuple
             or len(config.default_centroid) != 3
         ):
-            raise ValueError("Default centroid must be a tuple of three integers")
+            raise ValueError(
+                "Default centroid must be a tuple of three integers or floats"
+            )
 
         if (
-            type(config.default_centroid[0]) is not int
-            or type(config.default_centroid[1]) is not int
-            or type(config.default_centroid[2]) is not int
+            type(config.default_centroid[0]) not in (int, float)
+            or type(config.default_centroid[1]) not in (int, float)
+            or type(config.default_centroid[2]) not in (int, float)
         ):
-            raise ValueError("Default centroid must be a tuple of three integers")
+            raise ValueError(
+                "Default centroid must be a tuple of three integers or floats"
+            )
 
         if type(config.max_voxel_drift) is not int:
             raise ValueError("Max voxel drift must be an integer")
@@ -676,17 +680,21 @@ class Subject:
             raise ValueError("MNI coordinates must be a tuple of two tuples.")
 
         if len(mni_coords[0]) != 3 or len(mni_coords[1]) != 3:
-            raise ValueError("MNI coordinates must be a tuple of three integers.")
+            raise ValueError(
+                "MNI coordinates must be a tuple of three integers or floats."
+            )
 
         if (
-            type(mni_coords[0][0]) is not int
-            or type(mni_coords[0][1]) is not int
-            or type(mni_coords[0][2]) is not int
-            or type(mni_coords[1][0]) is not int
-            or type(mni_coords[1][1]) is not int
-            or type(mni_coords[1][2]) is not int
+            type(mni_coords[0][0]) not in (int, float)
+            or type(mni_coords[0][1]) not in (int, float)
+            or type(mni_coords[0][2]) not in (int, float)
+            or type(mni_coords[1][0]) not in (int, float)
+            or type(mni_coords[1][1]) not in (int, float)
+            or type(mni_coords[1][2]) not in (int, float)
         ):
-            raise ValueError("MNI coordinates must be a tuple of three integers.")
+            raise ValueError(
+                "MNI coordinates must be a tuple of three integers or floats."
+            )
 
         # List to store previous centroids to check for convergence
         previous_centroids = []
