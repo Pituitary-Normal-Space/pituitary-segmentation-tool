@@ -1207,14 +1207,10 @@ class Subject:
         z_max = min(img_data.shape[2] - 1, z_max)
 
         # Get coordinates and intensities for all voxels in the specified voxel space region
-        config.x_range = range(x_min, x_max + 1)
-        config.y_range = range(y_min, y_max + 1)
-        config.z_range = range(z_min, z_max + 1)
-        coords = (
-            np.array(np.meshgrid(config.x_range, config.y_range, config.z_range))
-            .reshape(3, -1)
-            .T
-        )
+        x_range = range(x_min, x_max + 1)
+        y_range = range(y_min, y_max + 1)
+        z_range = range(z_min, z_max + 1)
+        coords = np.array(np.meshgrid(x_range, y_range, z_range)).reshape(3, -1).T
         intensities = img_data[coords[:, 0], coords[:, 1], coords[:, 2]]
 
         def get_connected_component(coords, mask_shape, centroid):
