@@ -27,29 +27,12 @@ if type(config.percent_cpus_to_use) is not float:
 
 def process_subject(subject):
     """Process a single subject"""
-    if subject.subject_id in [
-        "101107",
-        "100307",
-        "100408",
-        "101309",
-        "101915",
-        "103111",
-        "103414",
-        "106016",
-        "108828",
-        "110411",
-        "113922",
-        "111716",
-        "116524",
-    ]:
-        print(f"Skipping {subject.subject_id}")
-        return
-
     print(subject)
-    subject.preprocess_MRIs()
-    subject.overlay_MRIs()
-    subject.coregister_to_mni_space()
-    subject.segment_pituitary_gland()
+    # subject.preprocess_MRIs()
+    # subject.overlay_MRIs()
+    # subject.coregister_to_mni_space()
+    subject.setup_pituitary_analysis()
+    subject.segment_pituitary_gland(weighted_img_to_use="both")
     print(subject)
 
 
@@ -58,6 +41,9 @@ def main() -> None:
     subject_list = create_subject_list(
         pd.read_csv(f"{PATH_TO_UNPROCESSED_DATA}/{KEY_MAP_NAME}")
     )
+
+    # Make subject list just a single subject
+    subject_list = subject_list[:1]
 
     # Determine number of cores to use based on percent_cpus_to_use
     num_cores = max(1, int(mp.cpu_count() * config.percent_cpus_to_use))

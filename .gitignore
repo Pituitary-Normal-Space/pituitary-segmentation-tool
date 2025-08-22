@@ -165,10 +165,10 @@ unprocessed/*
 !unprocessed/.gitkeep
 processed/*
 !processed/.gitkeep
-ground_truth_masks/*
-!ground_truth_masks/.gitkeep
 .DS_Store
 
 
 *.db
 average_DICE_score.txt
+
+voxel_weights_*

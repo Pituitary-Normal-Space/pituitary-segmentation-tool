@@ -122,18 +122,22 @@ class Subject:
         if (
             type(config.x_range) is not tuple
             or len(config.x_range) != 2
-            and type(config.x_range[0]) not in (int, float)
-            and type(config.x_range[1]) not in (int, float)
+            or type(config.x_range[0]) not in (int, float)
+            or type(config.x_range[1]) not in (int, float)
         ):
-            raise ValueError("X range must be a tuple of two integers or floats")
+            raise ValueError(
+                f"X range must be a tuple of two integers or floats. Was: {config.x_range}. Types are {type(config.x_range[0])}, {type(config.x_range[1])}"
+            )
 
         if (
             type(config.y_range) is not tuple
             or len(config.y_range) != 2
-            and type(config.y_range[0]) not in (int, float)
-            and type(config.y_range[1]) not in (int, float)
+            or type(config.y_range[0]) not in (int, float)
+            or type(config.y_range[1]) not in (int, float)
         ):
-            raise ValueError("Y range must be a tuple of two integers or floats")
+            raise ValueError(
+                f"Y range must be a tuple of two integers or floats. Was: {config.y_range}. Types are {type(config.y_range[0])}, {type(config.y_range[1])}"
+            )
 
         if (
             type(config.z_range) is not tuple
@@ -141,26 +145,42 @@ class Subject:
             and type(config.z_range[0]) not in (int, float)
             and type(config.z_range[1]) not in (int, float)
         ):
-            raise ValueError("Z range must be a tuple of two integers or floats")
+            raise ValueError(
+                f"Z range must be a tuple of two integers or floats. Was: {config.z_range}. Types are {type(config.z_range[0])}, {type(config.z_range[1])}"
+            )
 
         if (
-            type(config.intensity_range) is not tuple
-            or len(config.intensity_range) != 2
-            and type(config.intensity_range[0]) is not int
-            and type(config.intensity_range[1]) is not int
+            type(config.t1.intensity_range) is not tuple
+            or len(config.t1.intensity_range) != 2
+            and type(config.t1.intensity_range[0]) is not int
+            and type(config.t1.intensity_range[1]) is not int
+        ) or (
+            type(config.t2.intensity_range) is not tuple
+            or len(config.t2.intensity_range) != 2
+            and type(config.t2.intensity_range[0]) is not int
+            and type(config.t2.intensity_range[1]) is not int
         ):
             raise ValueError("Intensity range must be a tuple of two integers")
 
-        if type(config.distance_weight) is not float:
+        if type(config.t1.distance_weight or config.t2.distance_weight) is not float:
             raise ValueError("Distance weight must be a float")
 
-        if type(config.intensity_range_weight) is not float:
+        if (
+            type(config.t1.intensity_range_weight or config.t2.intensity_range_weight)
+            is not float
+        ):
             raise ValueError("Intensity range weight must be a float")
 
-        if type(config.connectivity_weight) is not float:
+        if (
+            type(config.t1.connectivity_weight or config.t2.connectivity_weight)
+            is not float
+        ):
             raise ValueError("Connectivity weight must be a float")
 
-        if type(config.min_score_threshold) is not float:
+        if (
+            type(config.t1.min_score_threshold or config.t2.min_score_threshold)
+            is not float
+        ):
             raise ValueError("Minimum score threshold must be a float between 0 and 1")
 
         if type(config.intensity_tolerance) is not int:
@@ -175,20 +195,28 @@ class Subject:
         if config.max_voxels < 0:
             raise ValueError("Max voxels must be greater than 0")
 
-        if config.min_score_threshold < 0 or config.min_score_threshold > 1:
+        if config.t1.min_score_threshold < 0 or config.t2.min_score_threshold > 1:
             raise ValueError("Minimum score threshold must be between 0 and 1")
 
         if (
             round(
-                config.distance_weight
-                + config.intensity_range_weight
-                + config.connectivity_weight,
+                config.t1.distance_weight
+                + config.t1.intensity_range_weight
+                + config.t1.connectivity_weight,
+                10,
+            )
+            != 1
+        ) or (
+            round(
+                config.t2.distance_weight
+                + config.t2.intensity_range_weight
+                + config.t2.connectivity_weight,
                 10,
             )
             != 1
         ):
             raise ValueError(
-                f"Weights for distance, intensity, connectivity, and naive mask must add up to 1 they are {config.distance_weight}, {config.intensity_range_weight}, {config.connectivity_weight} adding to {config.distance_weight + config.intensity_range_weight + config.connectivity_weight}"
+                f"Weights for distance, intensity, connectivity, and naive mask must add up to 1 they are {config.t2.distance_weight}, {config.t2.intensity_range_weight}, {config.t2.connectivity_weight} adding to {config.t2.distance_weight + config.t2.intensity_range_weight + config.t2.connectivity_weight} for t2 and {config.t1.distance_weight}, {config.t1.intensity_range_weight}, {config.t1.connectivity_weight} adding to {config.t1.distance_weight + config.t1.intensity_range_weight + config.t1.connectivity_weight} for t1"
             )
 
         if type(config.fractional_intensity_t1) is not float:
@@ -263,72 +291,112 @@ class Subject:
         if config.max_voxel_drift < 0:
             raise ValueError("Max voxel drift must be greater than 0")
 
-        if type(config.high_quality_neighbors_to_consider_connected) is not int:
+        if (
+            type(
+                config.t1.high_quality_neighbors_to_consider_connected
+                or config.t2.high_quality_neighbors_to_consider_connected
+            )
+            is not int
+        ):
             raise ValueError(
                 "High quality neighbors to consider connected must be an integer"
             )
 
         if (
-            config.high_quality_neighbors_to_consider_connected < 0
-            or config.high_quality_neighbors_to_consider_connected > 26
+            config.t1.high_quality_neighbors_to_consider_connected < 0
+            or config.t1.high_quality_neighbors_to_consider_connected > 26
         ):
             raise ValueError(
                 "High quality neighbors to consider connected must be greater than 0 and less than 26"
             )
 
         if (
-            type(config.region_growing_weight) is not float
-            and type(config.region_growing_weight) is not int
+            type(config.t1.region_growing_weight) is not float
+            and type(config.t1.region_growing_weight) is not int
+        ) or (
+            type(config.t2.region_growing_weight) is not float
+            and type(config.t2.region_growing_weight) is not int
         ):
             raise ValueError("Region growing weight must be a float")
 
         if (
-            type(config.score_based_weight) is not float
-            and type(config.score_based_weight) is not int
+            type(config.t1.score_based_weight) is not float
+            and type(config.t1.score_based_weight) is not int
+        ) or (
+            type(config.t2.score_based_weight) is not float
+            and type(config.t2.score_based_weight) is not int
         ):
             raise ValueError("Score based weight must be a float")
 
-        if config.region_growing_weight < 0 or config.region_growing_weight > 1:
+        if (
+            config.t1.region_growing_weight < 0 or config.t1.region_growing_weight > 1
+        ) or (
+            config.t2.region_growing_weight < 0 or config.t2.region_growing_weight > 1
+        ):
             raise ValueError("Region growing weight must be between 0 and 1")
 
-        if config.score_based_weight < 0 or config.score_based_weight > 1:
+        if (config.t1.score_based_weight < 0 or config.t1.score_based_weight > 1) or (
+            config.t2.score_based_weight < 0 or config.t2.score_based_weight > 1
+        ):
             raise ValueError("Score based weight must be between 0 and 1")
 
-        if round(config.score_based_weight + config.region_growing_weight != 1, 10):
+        if round(
+            config.t1.score_based_weight + config.t1.region_growing_weight != 1, 10
+        ) or round(
+            config.t2.score_based_weight + config.t2.region_growing_weight != 1, 10
+        ):
             raise ValueError(
                 "Region growing weight and score based weight must add up to 1"
             )
 
-        if type(config.num_neighbors_required_to_boost) is not int:
+        if (
+            type(config.t1.num_neighbors_required_to_boost) is not int
+            or type(config.t2.num_neighbors_required_to_boost) is not int
+        ):
             raise ValueError("Number of neighbors required to boost must be an integer")
 
         if (
-            config.num_neighbors_required_to_boost < 0
-            or config.num_neighbors_required_to_boost > 26
+            config.t1.num_neighbors_required_to_boost < 0
+            or config.t1.num_neighbors_required_to_boost > 26
+        ) or (
+            config.t2.num_neighbors_required_to_boost < 0
+            or config.t2.num_neighbors_required_to_boost > 26
         ):
             raise ValueError(
                 "Number of neighbors required to boost must be between 0 and 26"
             )
 
-        if type(config.min_score_considered_high_score) is not float:
+        if (
+            type(config.t1.min_score_considered_high_score) is not float
+            or type(config.t2.min_score_considered_high_score) is not float
+        ):
             raise ValueError("Minimum score considered high score must be a float")
 
         if (
-            config.min_score_considered_high_score < 0
-            or config.min_score_considered_high_score > 1
+            config.t1.min_score_considered_high_score < 0
+            or config.t1.min_score_considered_high_score > 1
+        ) or (
+            config.t2.min_score_considered_high_score < 0
+            or config.t2.min_score_considered_high_score > 1
         ):
             raise ValueError(
                 "Minimum score considered high score must be between 0 and 1"
             )
 
-        if type(config.min_score_to_boost_if_quality_neighbors) is not float:
+        if (
+            type(config.t1.min_score_to_boost_if_quality_neighbors) is not float
+            or type(config.t2.min_score_to_boost_if_quality_neighbors) is not float
+        ):
             raise ValueError(
                 "Minimum score to boost if quality neighbors must be a float"
             )
 
         if (
-            config.min_score_to_boost_if_quality_neighbors < 0
-            or config.min_score_to_boost_if_quality_neighbors > 1
+            config.t1.min_score_to_boost_if_quality_neighbors < 0
+            or config.t1.min_score_to_boost_if_quality_neighbors > 1
+        ) or (
+            config.t2.min_score_to_boost_if_quality_neighbors < 0
+            or config.t2.min_score_to_boost_if_quality_neighbors > 1
         ):
             raise ValueError(
                 "Minimum score to boost if quality neighbors must be between 0 and 1"
@@ -651,19 +719,32 @@ class Subject:
     def segment_pituitary_gland(
         self,
         mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
-            (config.x_range[0], config.y_range[0], config.z_range[0]),
-            (config.x_range[1], config.y_range[1], config.z_range[1]),
+            (
+                config.x_range[0],
+                config.y_range[0],
+                config.z_range[0],
+            ),
+            (
+                config.x_range[1],
+                config.y_range[1],
+                config.z_range[1],
+            ),
         ),
-        appendage_removal=config.do_appendage_removal,
+        appendage_removal: bool = config.do_appendage_removal,
+        weighted_img_to_use: Literal["t1", "t2", "both"] = "t1",
     ) -> None:
         """
-        Creates a probabilistic pituitary mask using both methods, refines it, and calculates statistics.
+        Creates a probabilistic pituitary mask using T1, T2, or both modalities.
 
-        :param mni_coords: A tuple containing two MNI coordinate bounds to define the search region.
-        :param appendage_removal: A boolean to remove appendages from the mask.
+        If "both" is selected, T1 and T2 probabilistic masks are fused voxel-wise
+        using the weights in config.voxel_weights.
 
-        :return: None. Saves the final pituitary mask in the output directory. Statistics are stored in final_mask_stats.
+        :param mni_coords: Two tuples defining the search ROI in MNI space.
+        :param appendage_removal: Whether to remove appendages from the mask.
+        :param weighted_img_to_use: "t1", "t2", or "both".
+        :return: None. Saves pituitary mask + stats.
         """
+
         if not self.moved_to_mni_norm_space and not self.preproc_complete:
             raise ValueError(
                 "Images not in MNI space. Run coregister_to_mni_space first."
@@ -673,59 +754,124 @@ class Subject:
             print("Pituitary mask already created. Skipping...")
             return self.final_mask_stats
 
-        if type(mni_coords) is not tuple or len(mni_coords) != 2:
+        # --- Validation of MNI coords ---
+        if not (isinstance(mni_coords, tuple) and len(mni_coords) == 2):
             raise ValueError("MNI coordinates must be a tuple of two tuples.")
+        if not (len(mni_coords[0]) == 3 and len(mni_coords[1]) == 3):
+            raise ValueError("MNI coordinates must be a tuple of three values each.")
 
-        if type(mni_coords[0]) is not tuple or type(mni_coords[1]) is not tuple:
-            raise ValueError("MNI coordinates must be a tuple of two tuples.")
-
-        if len(mni_coords[0]) != 3 or len(mni_coords[1]) != 3:
-            raise ValueError(
-                "MNI coordinates must be a tuple of three integers or floats."
-            )
-
-        if (
-            type(mni_coords[0][0]) not in (int, float)
-            or type(mni_coords[0][1]) not in (int, float)
-            or type(mni_coords[0][2]) not in (int, float)
-            or type(mni_coords[1][0]) not in (int, float)
-            or type(mni_coords[1][1]) not in (int, float)
-            or type(mni_coords[1][2]) not in (int, float)
-        ):
-            raise ValueError(
-                "MNI coordinates must be a tuple of three integers or floats."
-            )
-
-        # List to store previous centroids to check for convergence
         previous_centroids = []
         centroid = config.default_centroid
-        # Get current w, h, d around centroid using mni coords
+
         width = abs(mni_coords[1][0] - mni_coords[0][0])
         height = abs(mni_coords[1][1] - mni_coords[0][1])
         depth = abs(mni_coords[1][2] - mni_coords[0][2])
+
         while centroid not in previous_centroids:
             if len(previous_centroids) > 0:
                 print(
-                    f"Centroid has shifted for the {len(previous_centroids)}th time. Searching for pituitary gland around centroid: {centroid}"
+                    f"Centroid shifted {len(previous_centroids)} times. Searching around centroid: {centroid}"
                 )
             previous_centroids.append(centroid)
-            # If greater than max_voxel_drift mm3 shift in a direction from original centroid, break
+
             if self.__check_for_drift(
                 config.default_centroid, centroid, config.max_voxel_drift
             ):
-                print("Centroid has drifted too far from origin. Exiting...")
+                print("Centroid drifted too far. Exiting...")
                 break
 
-            # Update MNI coordinates to search around the centroid, keep same w, h, d
-            # This should complete a frame shift around the centroid
             mni_coords = self.__shift_pituitary_roi(centroid, width, height, depth)
 
-            # Create your probabilistic mask first using your scoring method
-            prob_mask = self.__create_probabilistic_pituitary_mask(
-                mni_coords=mni_coords, centroid=centroid
-            )
+            # --- Step 1: build modality-specific probabilistic masks ---
+            if weighted_img_to_use in ("t1", "both"):
+                prob_mask_t1 = self.__create_probabilistic_pituitary_mask(
+                    mni_coords=mni_coords, centroid=centroid, weighted_img_to_use="t1"
+                )
+            if weighted_img_to_use in ("t2", "both"):
+                prob_mask_t2 = self.__create_probabilistic_pituitary_mask(
+                    mni_coords=mni_coords, centroid=centroid, weighted_img_to_use="t2"
+                )
 
-            # Save the probabilistic mask with the scores
+            # --- Step 2: fuse T1 and T2 if needed ---
+            if weighted_img_to_use == "both":
+                # ROI dimensions
+                x_dim = prob_mask_t1.shape[0]
+                y_dim = prob_mask_t1.shape[1]
+                z_dim = prob_mask_t1.shape[2]
+
+                print(
+                    f"Fusing T1 and T2 masks with dimensions: {x_dim}, {y_dim}, {z_dim}"
+                )
+
+                prob_mask = np.zeros_like(prob_mask_t1, dtype=np.float32)
+
+                config.pad_voxel_weights(
+                    prob_mask_t1.shape, mni_coords, nib.load(self.t1_in_mni_space)
+                )
+
+                # Get voxel weights
+                for x in range(x_dim):
+                    for y in range(y_dim):
+                        for z in range(z_dim):
+                            w_t1, w_t2 = config.get_voxel_weight(x, y, z)
+                            if (
+                                w_t1 == 0
+                                and w_t2 == 0
+                                and (
+                                    prob_mask_t1[x, y, z] != 0
+                                    or prob_mask_t2[x, y, z] != 0
+                                )
+                            ):
+                                import tempfile
+
+                                def save_temp_nifti(array, reference_img_path):
+                                    ref_img = nib.load(reference_img_path)
+                                    temp_file = tempfile.NamedTemporaryFile(
+                                        suffix=".nii.gz", delete=False
+                                    )
+                                    nib.save(
+                                        nib.Nifti1Image(
+                                            array, ref_img.affine, ref_img.header
+                                        ),
+                                        temp_file.name,
+                                    )
+                                    return temp_file.name
+
+                                # Save arrays as NIfTI files
+                                prob_mask_t1_path = save_temp_nifti(
+                                    prob_mask_t1, self.t1_in_mni_space
+                                )
+                                voxel_weights_t1_path = save_temp_nifti(
+                                    config.voxel_weights[..., 0], self.t1_in_mni_space
+                                )
+
+                                # Now call show_mri_slices with file paths
+                                show_mri_slices(
+                                    [
+                                        prob_mask_t1_path,  # T1 probabilistic mask
+                                        voxel_weights_t1_path,  # T1 weights
+                                    ],
+                                    slice_index=self.slice_indices,
+                                    titles=["T1 Probabilistic Mask with Weights"],
+                                    overlay=True,
+                                    colormaps=[
+                                        "gray",  # T1 MRI
+                                        "viridis",  # T1 mask
+                                    ],
+                                )
+                                raise ValueError(
+                                    f"Both weights are zero at voxel {x}, {y}, {z} with non-zero probability of {prob_mask_t1[x, y, z]} and {prob_mask_t2[x, y, z]}"
+                                )
+                            prob_mask[x, y, z] = (
+                                w_t1 * prob_mask_t1[x, y, z]
+                                + w_t2 * prob_mask_t2[x, y, z]
+                            )
+            elif weighted_img_to_use == "t1":
+                prob_mask = prob_mask_t1
+            else:
+                prob_mask = prob_mask_t2
+
+            # --- Step 3: save probabilistic mask ---
             prob_mask_img = nib.Nifti1Image(
                 prob_mask, nib.load(self.t1_in_mni_space).affine
             )
@@ -733,44 +879,26 @@ class Subject:
                 self.output_dir, PROB_MASK_PREFIX + PROB_PITUITARY_MASK
             )
             nib.save(prob_mask_img, self.prob_pituitary_mask)
-            # Show the probabilistic mask overlayed on the T1 image
+
             show_mri_slices(
                 [self.t1_in_mni_space, self.prob_pituitary_mask],
                 slice_index=self.slice_indices,
-                titles=[
-                    "T1 MRI with Probabilistic Pituitary Mask Overlay Pre-Appendage Removal"
-                ],
+                titles=["MRI with Probabilistic Pituitary Mask Pre-Appendage Removal"],
                 overlay=True,
-                colormaps=["gray", "viridis"],  # T1 image  # Probability map
+                colormaps=["gray", "viridis"],
             )
+
+            # --- Step 4: appendage removal ---
             t1_img = nib.load(self.t1_in_mni_space)
             if appendage_removal:
-                # Remove appendages before converting to binary
                 print("Refining mask by removing appendages...")
                 refined_mask = self.__remove_appendages(prob_mask, t1_img.affine)
-
-                # Save the refined mask with the compbined probabilities after appendage removal
                 refined_mask_img = nib.Nifti1Image(refined_mask, t1_img.affine)
-                self.prob_pituitary_mask = os.path.join(
-                    self.output_dir, PROB_MASK_PREFIX + PROB_PITUITARY_MASK
-                )
                 nib.save(refined_mask_img, self.prob_pituitary_mask)
-
-                # Show the refined mask overlayed on the T1 image
-                show_mri_slices(
-                    [self.t1_in_mni_space, self.prob_pituitary_mask],
-                    slice_index=self.slice_indices,
-                    titles=[
-                        "T1 MRI with Refined Pituitary Mask Overlay Post-Appendage Removal"
-                    ],
-                    overlay=True,
-                    colormaps=["gray", "viridis"],  # T1 image  # Probability map
-                )
-
             else:
                 refined_mask = prob_mask
 
-            # Convert refined mask to binary for statistics using 0.5 threshold
+            # --- Step 5: convert to binary ---
             binary_mask_img = nib.Nifti1Image(
                 (refined_mask > config.final_score_threshold).astype(np.uint8),
                 t1_img.affine,
@@ -780,18 +908,21 @@ class Subject:
             )
             nib.save(binary_mask_img, self.binary_pituitary_mask)
 
-            # Get the centroid of the refined mask
-            centroid = tuple(
-                round(coor) for coor in self.__get_pituitary_statistics()["center_mni"]
-            )
+            # --- Step 6: update centroid ---
+            if len(binary_mask_img.get_fdata().nonzero()[0]) > 0:
+                centroid = tuple(
+                    round(coor)
+                    for coor in self.__get_pituitary_statistics()["center_mni"]
+                )
+            else:
+                break
 
-        # Show the final refined mask overlayed on the T1 image
         show_mri_slices(
             [self.t1_in_mni_space, self.binary_pituitary_mask],
             slice_index=self.slice_indices,
-            titles=["Final T1 MRI with Refined Pituitary Mask Overlay"],
+            titles=["Final MRI with Refined Pituitary Mask Overlay"],
             overlay=True,
-            colormaps=["gray", "viridis"],  # T1 image  # Probability map
+            colormaps=["gray", "viridis"],
         )
 
         self.mask_complete = True
@@ -851,9 +982,18 @@ class Subject:
     def __create_naive_pituitary_mask(
         self,
         mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
-            (config.x_range[0], config.y_range[0], config.z_range[0]),
-            (config.x_range[1], config.y_range[1], config.z_range[1]),
+            (
+                config.x_range[0],
+                config.y_range[0],
+                config.z_range[0],
+            ),
+            (
+                config.x_range[1],
+                config.y_range[1],
+                config.z_range[1],
+            ),
         ),  # These coordinates were determined by me
+        weighted_img_to_use: Literal["t1", "t2"] = "t1",
     ) -> None:
         """
         Grabs the ROI of MNI coordinates and creates a naive pituitary mask based on intensity within a range.
@@ -863,16 +1003,24 @@ class Subject:
         :return: None. Saves the naive pituitary mask in the output directory.
         """
         print("Creating naive pituitary mask...")
-        if not self.t1_in_mni_space:
+        if not self.t1_in_mni_space and not self.t2_in_mni_space:
             raise FileNotFoundError(
-                "T1 MRI image in MNI space not found. Run coregister_to_mni_space first."
+                "T1 MRI and T2 MRI image in MNI space not found. Run coregister_to_mni_space first."
             )
 
         # Define the output mask file
         self.binary_pituitary_mask = os.path.join(self.output_dir, PITUITARY_MASK_FILE)
 
         # Convert MNI coordinates to voxel space and get the size as well
-        nii_img = nib.load(self.t1_in_mni_space)
+        if weighted_img_to_use == "t1":
+            nii_img = nib.load(self.t1_in_mni_space)
+            intensity_range = config.t1.intensity_range
+        elif weighted_img_to_use == "t2":
+            nii_img = nib.load(self.t2_in_mni_space)
+            intensity_range = config.t2.intensity_range
+        else:
+            raise ValueError("weighted_img_to_use must be either 't1' or 't2'.")
+
         mni_to_voxel = np.linalg.inv(nii_img.affine)
         voxel_coords = np.dot(mni_to_voxel, np.array([*mni_coords[0], 1]))[:3].astype(
             int
@@ -927,11 +1075,9 @@ class Subject:
             f"Pituitary mask intensity range: {np.min(pituitary_data)} - {np.max(pituitary_data)}"
         )
         min_intensity = np.min(
-            pituitary_data[pituitary_data > config.intensity_range[0]]
+            pituitary_data[pituitary_data > intensity_range[0]]
         )  # Ignore background, background tissue, and vessels for now
-        max_intensity = np.max(
-            pituitary_data[pituitary_data < config.intensity_range[1]]
-        )
+        max_intensity = np.max(pituitary_data[pituitary_data < intensity_range[1]])
         highlight_threshold = (min_intensity, max_intensity)
 
         print(f"Highlighting intensities between {highlight_threshold}")
@@ -973,9 +1119,18 @@ class Subject:
         self,
         centroid: Tuple[int, int, int],
         mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
-            (config.x_range[0], config.y_range[0], config.z_range[0]),
-            (config.x_range[1], config.y_range[1], config.z_range[1]),
+            (
+                config.x_range[0],
+                config.y_range[0],
+                config.z_range[0],
+            ),
+            (
+                config.x_range[1],
+                config.y_range[1],
+                config.z_range[1],
+            ),
         ),  # These coordinates were determined by me
+        weighted_img_to_use: Literal["t1", "t2"] = "t1",
     ) -> np.ndarray:
         """
         Detect and segment the pituitary gland using intensity thresholds and giving preference to
@@ -1001,15 +1156,42 @@ class Subject:
         # Load the image data
         mask_img = nib.load(self.binary_pituitary_mask)  # Will be the naive mask
         naive_mask_data = mask_img.get_fdata()
-        t1_img = nib.load(self.t1_in_mni_space)
-        t1_data = t1_img.get_fdata()
+        if weighted_img_to_use == "t1":
+            img = nib.load(self.t1_in_mni_space)
+            img_data = img.get_fdata()
+
+            # While at it
+            high_quality_neighbors_to_consider_connected = (
+                config.t1.high_quality_neighbors_to_consider_connected
+            )
+            distance_weight = config.t1.distance_weight
+            intensity_range_weight = config.t1.intensity_range_weight
+            connectivity_weight = config.t1.connectivity_weight
+            min_score_threshold = config.t1.min_score_threshold
+            intensity_range = config.t1.intensity_range
+
+        elif weighted_img_to_use == "t2":
+            img = nib.load(self.t2_in_mni_space)
+            img_data = img.get_fdata()
+
+            high_quality_neighbors_to_consider_connected = (
+                config.t2.high_quality_neighbors_to_consider_connected
+            )
+            distance_weight = config.t2.distance_weight
+            intensity_range_weight = config.t2.intensity_range_weight
+            connectivity_weight = config.t2.connectivity_weight
+            min_score_threshold = config.t2.min_score_threshold
+            intensity_range = config.t2.intensity_range
+
+        else:
+            raise ValueError("weighted_img_to_use must be either 't1' or 't2'.")
 
         # Convert to voxel space
         voxel_coords_min = self.__convert_from_mni_to_voxel_space(
-            mni_coords=mni_coords[0], img=t1_img
+            mni_coords=mni_coords[0], img=img
         )
         voxel_coords_max = self.__convert_from_mni_to_voxel_space(
-            mni_coords=mni_coords[1], img=t1_img
+            mni_coords=mni_coords[1], img=img
         )
 
         # Ensure coordinates are ordered properly (min < max)
@@ -1020,9 +1202,9 @@ class Subject:
         x_min = max(0, x_min)
         y_min = max(0, y_min)
         z_min = max(0, z_min)
-        x_max = min(t1_data.shape[0] - 1, x_max)
-        y_max = min(t1_data.shape[1] - 1, y_max)
-        z_max = min(t1_data.shape[2] - 1, z_max)
+        x_max = min(img_data.shape[0] - 1, x_max)
+        y_max = min(img_data.shape[1] - 1, y_max)
+        z_max = min(img_data.shape[2] - 1, z_max)
 
         # Get coordinates and intensities for all voxels in the specified voxel space region
         config.x_range = range(x_min, x_max + 1)
@@ -1033,7 +1215,7 @@ class Subject:
             .reshape(3, -1)
             .T
         )
-        intensities = t1_data[coords[:, 0], coords[:, 1], coords[:, 2]]
+        intensities = img_data[coords[:, 0], coords[:, 1], coords[:, 2]]
 
         def get_connected_component(coords, mask_shape, centroid):
             """
@@ -1067,8 +1249,7 @@ class Subject:
 
                     # Only keep voxels with at least high_quality_neighbors_to_consider_connected neighbors
                     connected_mask = (
-                        neighbor_count
-                        >= config.high_quality_neighbors_to_consider_connected
+                        neighbor_count >= high_quality_neighbors_to_consider_connected
                     ) & initial_component
                     return connected_mask
             return np.zeros(mask_shape, dtype=bool)
@@ -1125,20 +1306,14 @@ class Subject:
             # Connectivity score - strongly prefer voxels connected to centroid
             # First get high-scoring voxels based on other criteria
             initial_scores = (
-                (
-                    config.distance_weight / config.distance_weight
-                    + config.intensity_range_weight
-                )
+                (distance_weight / distance_weight + intensity_range_weight)
                 * distance_scores
             ) + (
-                (
-                    config.intensity_range_weight / config.distance_weight
-                    + config.intensity_range_weight
-                )
+                (intensity_range_weight / distance_weight + intensity_range_weight)
                 * intensity_scores
             )
             high_score_mask = initial_scores >= np.percentile(
-                initial_scores, config.min_score_threshold
+                initial_scores, min_score_threshold
             )
 
             # Get connected component from these high-scoring voxels
@@ -1154,9 +1329,9 @@ class Subject:
 
             # Combine scores with weights
             final_scores = (
-                config.distance_weight * distance_scores
-                + config.intensity_range_weight * intensity_scores
-                + config.connectivity_weight * connectivity_scores
+                distance_weight * distance_scores
+                + intensity_range_weight * intensity_scores
+                + connectivity_weight * connectivity_scores
             )
 
             return final_scores
@@ -1172,7 +1347,7 @@ class Subject:
         )  # Adding 1 for homogeneous coordinates
         # Get voxel coordinates and ensure they are ints
         voxel_coords = self.__convert_from_mni_to_voxel_space(
-            mni_coords=mni_coords_pituitary, img=t1_img
+            mni_coords=mni_coords_pituitary, img=img
         )
         centroid = np.round(voxel_coords).astype(int)
 
@@ -1190,7 +1365,7 @@ class Subject:
 
         # Calculate clustering scores
         scores = compute_scores(
-            coords, intensities, centroid, config.intensity_range, t1_data.shape
+            coords, intensities, centroid, intensity_range, img_data.shape
         )
 
         # Instead of creating a binary mask, create a probabilistic one using the scores
@@ -1198,7 +1373,7 @@ class Subject:
         prob_mask[coords[:, 0], coords[:, 1], coords[:, 2]] = scores
 
         # Apply threshold but keep probabilities
-        prob_mask[prob_mask < config.min_score_threshold] = 0
+        prob_mask[prob_mask < min_score_threshold] = 0
 
         print(f"Score-based pituitary mask created with {np.sum(prob_mask)} voxels")
 
@@ -1221,7 +1396,7 @@ class Subject:
                 self.score_based_mask_scores,
             ],
             slice_index=self.slice_indices,
-            titles=["T1w MNI w/ Score-Based Mask"],
+            titles=[f"{weighted_img_to_use.upper()}w MNI w/ Score-Based Mask"],
             overlay=True,
             colormaps=[
                 "gray",  # T1 image in grayscale
@@ -1237,9 +1412,18 @@ class Subject:
         self,
         centroid: Tuple[int, int, int],
         mni_coords: Tuple[Tuple[int, int, int], Tuple[int, int, int]] = (
-            (config.x_range[0], config.y_range[0], config.z_range[0]),
-            (config.x_range[1], config.y_range[1], config.z_range[1]),
+            (
+                config.x_range[0],
+                config.y_range[0],
+                config.z_range[0],
+            ),
+            (
+                config.x_range[1],
+                config.y_range[1],
+                config.z_range[1],
+            ),
         ),
+        weighted_img_to_use: Literal["t1", "t2"] = "t1",
     ) -> np.ndarray:
         """
         Create a probabilistic pituitary mask using both score-based masking and region-growing methods.
@@ -1260,25 +1444,44 @@ class Subject:
         score_based_probs = self.__create_score_based_mask(
             mni_coords=mni_coords,
             centroid=centroid,
+            weighted_img_to_use=weighted_img_to_use,
         )
 
         # Create probabilistic mask
         prob_mask = np.zeros_like(score_based_probs)
 
         # Get the region growing mask
-        t1_img = nib.load(self.t1_in_mni_space)
-        t1_data = t1_img.get_fdata()
+        if weighted_img_to_use == "t1":
+            img_path = self.t1_in_mni_space
+            # Get the image specific configs while at it
+            intensity_range = config.t1.intensity_range
+            score_based_weight = config.t1.score_based_weight
+            region_growing_weight = config.t1.region_growing_weight
+        elif weighted_img_to_use == "t2":
+            img_path = self.t2_in_mni_space
+            # Get the image specific configs while at it
+            intensity_range = config.t2.intensity_range
+            score_based_weight = config.t2.score_based_weight
+            region_growing_weight = config.t2.region_growing_weight
+
+        else:
+            raise ValueError(
+                "Invalid 'weighted_img_to_use' parameter. Must be 't1' or 't2'."
+            )
+
+        img = nib.load(img_path)
+        img_data = img.get_fdata()
 
         # Get centroid in voxel space
-        centroid = self.__convert_from_mni_to_voxel_space(centroid, t1_img)
+        centroid = self.__convert_from_mni_to_voxel_space(centroid, img)
 
         # Cap probabilities at 1.0
         prob_mask = np.minimum(prob_mask, 1.0)
 
         # Check if the centroid is within the intensity range. If not then use the centroid of the score-based mask
         if (
-            t1_data[tuple(centroid)] < config.intensity_range[0]
-            or t1_data[tuple(centroid)] > config.intensity_range[1]
+            img_data[tuple(centroid)] < intensity_range[0]
+            or img_data[tuple(centroid)] > intensity_range[1]
         ):
             print(
                 f"WARNING: Centroid {centroid} was not in the intensity range skipping region growing"
@@ -1288,16 +1491,16 @@ class Subject:
             centroid = np.unravel_index(
                 np.argmax(
                     score_based_probs
-                    * (t1_data >= config.intensity_range[0])
-                    * (t1_data <= config.intensity_range[1])
+                    * (img_data >= intensity_range[0])
+                    * (img_data <= intensity_range[1])
                 ),
                 score_based_probs.shape,
             )
 
             # See if any centroid was found
             if (
-                t1_data[centroid] < config.intensity_range[0]
-                or t1_data[centroid] > config.intensity_range[1]
+                img_data[centroid] < intensity_range[0]
+                or img_data[centroid] > intensity_range[1]
             ):
                 # Skip region growing if no centroid was found
                 print("No centroid found in intensity range. Skipping region growing.")
@@ -1305,10 +1508,10 @@ class Subject:
 
             print(f"New centroid found: {centroid}")
 
-        region_mask = self.__region_growing(t1_data, tuple(centroid))
+        region_mask = self.__region_growing(img_data, tuple(centroid))
 
         # Show the region_mask
-        region_mask_img = nib.Nifti1Image(region_mask, t1_img.affine)
+        region_mask_img = nib.Nifti1Image(region_mask, img.affine)
         self.region_mask = os.path.join(
             self.output_dir, REGION_GROWING_MASK_PREFIX + PITUITARY_MASK_FILE
         )
@@ -1318,15 +1521,17 @@ class Subject:
         show_mri_slices(
             [self.t1_in_mni_space, self.region_mask],
             slice_index=self.slice_indices,
-            titles=["T1 MRI with Region Growing Mask Overlay"],
+            titles=[
+                f"{weighted_img_to_use.upper()} MRI with Region Growing Mask Overlay"
+            ],
             overlay=True,
             colormaps=["gray", "viridis"],  # T1 image  # Region mask
         )
 
         # Assign probabilities based on voting
         # Combine probabilities (0.6 weight for score-based, 0.4 for region growing)
-        prob_mask = config.score_based_weight * score_based_probs
-        prob_mask[region_mask > 0] += config.region_growing_weight
+        prob_mask = score_based_weight * score_based_probs
+        prob_mask[region_mask > 0] += region_growing_weight
 
         # Neighbors-based boosting
         # Fill in voxels surrounded by high-probability neighbors
@@ -1334,7 +1539,7 @@ class Subject:
         # for _ in range(2):  # Do this twice to ensure good coverage
         #     # Find voxels with high probability neighbors
         #     neighbor_sum = convolve(
-        #         (prob_mask > config.min_score_considered_high_score).astype(
+        #         (prob_mask > min_score_considered_high_score).astype(
         #             float
         #         ),  # Look at very high probability voxels
         #         structure,
@@ -1342,11 +1547,11 @@ class Subject:
         #     )
         #     # If a voxel has 20+ high probability neighbors (out of 26 possible), make it high probability
         #     high_neighbor_mask = (
-        #         (neighbor_sum > config.num_neighbors_required_to_boost)
-        #         & (prob_mask < config.min_score_considered_high_score)
-        #         & (prob_mask > config.min_score_to_boost_if_quality_neighbors)
+        #         (neighbor_sum > num_neighbors_required_to_boost)
+        #         & (prob_mask < min_score_considered_high_score)
+        #         & (prob_mask > min_score_to_boost_if_quality_neighbors)
         #     )
-        #     prob_mask[high_neighbor_mask] = config.min_score_considered_high_score
+        #     prob_mask[high_neighbor_mask] = min_score_considered_high_score
 
         print("Created probabilistic mask. Returning refined mask.")
 
@@ -1480,7 +1685,9 @@ class Subject:
 
         return mask
 
-    def __get_pituitary_statistics(self) -> dict:
+    def __get_pituitary_statistics(
+        self, weighted_img_to_use: Literal["t1", "t2"] = "t1"
+    ) -> dict:
         """
         Calculate statistics about the detected pituitary region
 
@@ -1498,8 +1705,12 @@ class Subject:
 
         mask_img = nib.load(self.binary_pituitary_mask)
         mask_data = mask_img.get_fdata()
-        t1_img = nib.load(self.t1_in_mni_space)
-        t1_data = t1_img.get_fdata()
+        if weighted_img_to_use == "t1":
+            img = nib.load(self.t1_in_mni_space)
+            img_data = img.get_fdata()
+        elif weighted_img_to_use == "t2":
+            img = nib.load(self.t2_in_mni_space)
+            img_data = img.get_fdata()
 
         # Get coordinates of mask voxels
         mask_coords = np.array(np.where(mask_data > 0)).T
@@ -1517,13 +1728,18 @@ class Subject:
 
         # Calculate weighted center of mass using probability scores as weights
         # If voxel probabilities sum to 0, then keep center of mass and mni center the same
-        center_of_mass = np.average(mask_coords, weights=voxel_probabilities, axis=0)
+        if voxel_probabilities.sum() == 0:
+            center_of_mass = np.mean(mask_coords, axis=0)
+        else:
+            center_of_mass = np.average(
+                mask_coords, weights=voxel_probabilities, axis=0
+            )
 
         # Convert to MNI space
         mni_center = np.dot(mask_img.affine, np.append(center_of_mass, 1))[:3]
 
         # Get intensity statistics
-        mask_intensities = t1_data[
+        mask_intensities = img_data[
             mask_coords[:, 0], mask_coords[:, 1], mask_coords[:, 2]
         ]
 
